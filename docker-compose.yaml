@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: roorin-postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: roorin
+      POSTGRES_PASSWORD: roorin
+      # Each service owns its own database. The extra
+      # databases are created by ./scripts/init-databases.sh on first boot.
+      POSTGRES_DB: roorin_auth
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U roorin']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
