@@ -15,7 +15,8 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@roorin/nestjs": ["./libs/nestjs/src/index.ts"]
+      "@roorin/nestjs": ["./libs/backend/nestjs/src/index.ts"],
+      "@roorin/proto": ["./libs/backend/proto/src/index.ts"]
     },
     "strict": true,
     "esModuleInterop": true

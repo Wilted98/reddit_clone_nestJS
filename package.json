@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "generate-ts-proto": "nx run proto:generate"
   },
   "private": true,
   "dependencies": {
