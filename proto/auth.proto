@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package auth;
+
+// Internal-only. Other Roorin services call Authenticate to turn the JWT cookie
+// on an incoming request into a user. Never exposed to clients — clients speak
+// GraphQL to each service's public edge.
+service AuthService {
+  rpc Authenticate(AuthenticateRequest) returns (User);
+}
+
+message AuthenticateRequest {
+  string token = 1;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+  string avatarUrl = 4;
+}

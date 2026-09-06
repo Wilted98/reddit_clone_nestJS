@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma-clients/roorin-auth';
 import { CreateUserInput } from './dto/create-user.input';
 import { hash } from 'bcryptjs';
+import { UpdateUserInput } from './dto/update-user.input';
 
 @Injectable()
 export class UsersService {
@@ -51,5 +52,12 @@ export class UsersService {
 
       throw err;
     }
+  }
+
+  async updateUser(userId: string, data: UpdateUserInput) {
+    return this.prismaService.client.user.update({
+      where: { id: userId },
+      data,
+    });
   }
 }

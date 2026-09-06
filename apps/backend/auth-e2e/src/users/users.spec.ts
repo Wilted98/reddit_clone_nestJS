@@ -1,31 +1,4 @@
-import axios from 'axios';
-
-interface GqlError {
-  message: string;
-  extensions?: {
-    code?: string;
-    originalError?: { statusCode?: number; message?: unknown };
-  };
-}
-interface GqlResponse<T> {
-  data?: T;
-  errors?: GqlError[];
-}
-
-// validateStatus: axios throws on non-2xx by default, but GraphQL returns
-// 400 for schema-validation errors (e.g. querying a field that doesn't
-// exist) and 200 for resolver-level errors - both need to resolve normally
-// so the test can inspect `errors` itself instead of catching an exception.
-const gql = <T>(query: string) =>
-  axios.post<GqlResponse<T>>(
-    '/graphql',
-    { query },
-    { validateStatus: () => true },
-  );
-
-/** Unique per test run so re-runs never collide on the DB's unique constraints. */
-const uniq = (prefix: string) =>
-  `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+import { gql, uniq } from '../support/gql';
 
 describe('users (createUser, user)', () => {
   it('registers a user and returns the public profile fields', async () => {
@@ -91,7 +64,8 @@ describe('users (createUser, user)', () => {
     // docs/04-authentication.md §2. The real 404 lives under
     // extensions.originalError.statusCode; NestJS's default GraphQL error
     // formatting leaves the top-level extensions.code as INTERNAL_SERVER_ERROR
-    // for any HttpException (see docs/07-graphql-api-reference.md).
+    // for most HttpExceptions (UnauthorizedException is the one exception -
+    // see auth.spec.ts) - see docs/07-graphql-api-reference.md.
     //
     // `data` (not `data.user`) is null: the `user` query field is
     // non-nullable in the schema, so GraphQL's null-propagation nulls the

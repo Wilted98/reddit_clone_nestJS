@@ -3,6 +3,7 @@ import { Prisma } from '@prisma-clients/roorin-auth';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserInput } from './dto/create-user.input';
+import { UpdateUserInput } from './dto/update-user.input';
 import { UsersService } from './users.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 
@@ -26,7 +27,13 @@ function uniqueConstraintError(target?: string[]) {
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: {
-    client: { user: { create: jest.Mock; findUniqueOrThrow: jest.Mock } };
+    client: {
+      user: {
+        create: jest.Mock;
+        findUniqueOrThrow: jest.Mock;
+        update: jest.Mock;
+      };
+    };
   };
 
   const input: CreateUserInput = {
@@ -41,6 +48,7 @@ describe('UsersService', () => {
         user: {
           create: jest.fn(),
           findUniqueOrThrow: jest.fn(),
+          update: jest.fn(),
         },
       },
     };
@@ -203,6 +211,38 @@ describe('UsersService', () => {
 
       await expect(service.getUser({ username: 'vasi' })).rejects.toBe(
         prismaError,
+      );
+    });
+  });
+
+  describe('updateUser', () => {
+    it('updates only the given user, with the given fields, unchanged', async () => {
+      const data: UpdateUserInput = { bio: 'hello world' };
+      const updated = { id: 'user-1', bio: 'hello world' };
+      prisma.client.user.update.mockResolvedValue(updated);
+
+      const result = await service.updateUser('user-1', data);
+
+      expect(prisma.client.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data,
+      });
+      expect(result).toBe(updated);
+    });
+
+    it('propagates a not-found error rather than silently doing nothing', async () => {
+      const notFound = new Prisma.PrismaClientKnownRequestError(
+        'No User found',
+        { code: 'P2025', clientVersion: '7.2.0' },
+      );
+      prisma.client.user.update.mockRejectedValue(notFound);
+
+      // updateUser has no try/catch, unlike createUser/getUser - this is
+      // intentional to record: a not-found here currently surfaces as an
+      // unmapped internal error, the same gap createUser/getUser used to
+      // have. See docs/04-authentication.md for the history of that pattern.
+      await expect(service.updateUser('ghost', { bio: 'x' })).rejects.toBe(
+        notFound,
       );
     });
   });

@@ -1,0 +1,20 @@
+{
+  "name": "proto",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/backend/proto/src",
+  "projectType": "library",
+  "tags": ["scope:shared", "type:util"],
+  "targets": {
+    "generate": {
+      "// why here": "the project that OWNS the generated output owns the target. Pointing app builds at a root-project target instead makes `nx run-many serve` re-enter its own task chain ('Recursive task invocation detected'), and protoc is invoked directly rather than through a nested `nx` process for the same reason.",
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["{workspaceRoot}/proto/*.proto"],
+      "outputs": ["{workspaceRoot}/libs/backend/proto/src/generated"],
+      "options": {
+        "command": "mkdir -p ./libs/backend/proto/src/generated && protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./libs/backend/proto/src/generated ./proto/*.proto --ts_proto_opt=nestJs=true",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

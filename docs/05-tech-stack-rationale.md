@@ -20,11 +20,12 @@ nice to have" once there's more than one service:
    there are five and a change to one shouldn't re-run the other four's
    suites on every commit.
 2. **Enforced module boundaries.** The `@nx/enforce-module-boundaries` ESLint
-   rule (configured in [`eslint.base.config.mjs`](../eslint.base.config.mjs))
-   can make "service A must never import service B's internals" a build
-   failure, not a code-review hope. Not yet configured with real constraints
-   (there's only one app to constrain), but the mechanism is there and will
-   matter the moment a second service exists.
+   rule (configured in [`eslint.config.mjs`](../eslint.config.mjs)) makes
+   "a scope can only depend on libs tagged `scope:shared`" a build failure,
+   not a code-review hope — already real today: `auth` (tagged `scope:auth`)
+   can only import `scope:shared` libs like `libs/backend/nestjs`. It has
+   only one scope to actually separate _from_ until a second service exists,
+   but the constraint itself is live now, not deferred.
 3. **Generators.** `nx g @nx/nest:app <name>` scaffolds a new service with a
    consistent project.json/tsconfig/webpack setup in one command — the same
    scaffold `auth` itself came from, so every future service starts from
@@ -136,11 +137,12 @@ offering yet.
 ## class-validator + class-transformer
 
 Validation rules live as decorators directly on the DTO class
-(`CreateUserInput`) rather than in a separate schema (Joi, Zod) or hand-written
-`if` statements in the resolver. The property being validated and its rule
-are the same line of code — see
-[`04-authentication.md`](04-authentication.md) for the current gap where this
-declared validation isn't yet wired up to actually run.
+(`CreateUserInput`, `LoginInput`, `UpdateUserInput`) rather than in a separate
+schema (Joi, Zod) or hand-written `if` statements in the resolver. The
+property being validated and its rule are the same line of code, enforced by
+a global `ValidationPipe` — see [`04-authentication.md`](04-authentication.md)
+§3 for the history of that pipe (it was missing for a while) and how it's
+verified today.
 
 ## Jest + ts-jest
 
