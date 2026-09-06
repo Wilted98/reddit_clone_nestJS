@@ -35,6 +35,16 @@ input CreateUserInput {
   email: String!
   password: String!
 }
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+input UpdateUserInput {
+  bio: String
+  avatarUrl: String
+}
 ```
 
 `id` and `createdAt` come from `AbstractModel`
@@ -103,12 +113,96 @@ against it — both explained in
 [`04-authentication.md`](04-authentication.md) §1: the real `409` lives
 under `extensions.originalError.statusCode`, not the top-level
 `extensions.code` (which NestJS's default GraphQL error formatting leaves as
-`INTERNAL_SERVER_ERROR` for any `HttpException`); and the message is
+`INTERNAL_SERVER_ERROR` here — `login` below is the one operation where the
+top-level code is actually meaningful, since `UnauthorizedException` gets
+special-cased to `UNAUTHENTICATED`); and the message is
 currently always the generic `"field already taken"` rather than naming the
 specific field, because `error.meta.target` isn't populated under the
 Postgres driver adapter in use here.
 
+### `login`
+
+Verifies the password and, on success, sets an httpOnly `Authentication`
+cookie — see [`04-authentication.md`](04-authentication.md) for exactly what
+that cookie contains and its flags. Returns the same `User` shape as
+`createUser`.
+
+```graphql
+mutation {
+  login(loginInput: { email: "vasi@roorin.dev", password: "Str0ng!Passw0rd1" }) {
+    id
+    username
+  }
+}
+```
+
+**Wrong password or unknown email — identical response either way** (no
+account-enumeration oracle):
+
+```json
+{ "errors": [{ "message": "Credentials are not valid.", "extensions": { "code": "UNAUTHENTICATED", "originalError": { "message": "Credentials are not valid.", "error": "Unauthorized", "statusCode": 401 } } }] }
+```
+
+Note `extensions.code` here really is `UNAUTHENTICATED` — unlike `createUser`
+and `user` above, `UnauthorizedException` (401) is one NestJS's default
+GraphQL error formatting does map to a real Apollo code.
+
+### `logout`
+
+Clears the `Authentication` cookie. Always returns `true`; does not require
+being logged in.
+
+```graphql
+mutation {
+  logout
+}
+```
+
+Clears the cookie **client-side only** — it does not revoke the JWT
+server-side (there is no token blocklist). See
+[`04-authentication.md`](04-authentication.md) for what that means in
+practice.
+
+### `updateUser` _(requires the `Authentication` cookie)_
+
+Updates the **caller's own** profile — there is no argument for which user
+to update; the id comes from the cookie, never from client input.
+
+```graphql
+mutation {
+  updateUser(updateUserInput: { bio: "building roorin", avatarUrl: "https://cdn.roorin.dev/a.png" }) {
+    id
+    bio
+    avatarUrl
+  }
+}
+```
+
+**No cookie, or an invalid one:**
+
+```json
+{ "errors": [{ "message": "Unauthorized", "extensions": { "code": "UNAUTHENTICATED", "originalError": { "message": "Unauthorized", "statusCode": 401 } } }] }
+```
+
 ## Queries
+
+### `me` _(requires the `Authentication` cookie)_
+
+Returns the **caller's own** profile — same non-argument-for-identity
+pattern as `updateUser`, and the same `UNAUTHENTICATED` shape without a valid
+cookie.
+
+```graphql
+{
+  me {
+    id
+    username
+    email
+    bio
+    avatarUrl
+  }
+}
+```
 
 ### `user`
 
@@ -141,10 +235,8 @@ part is inherent to the schema, not an error-handling gap.
 
 ## What's not here yet
 
-No `login`, no `me`, no `updateUser`, no way to change `bio`/`avatarUrl`
-after registration despite those columns existing (see
-[`03-database-design.md`](03-database-design.md)). No auth-guarded fields at
-all — every operation above is unauthenticated by necessity, since nothing
-issues a credential yet. See
-[`04-authentication.md`](04-authentication.md) "Planned" for what `login`
-will look like once it exists.
+No password reset, no email verification, no refresh tokens (the access
+token _is_ the session — see [`04-authentication.md`](04-authentication.md)
+"Planned" territory beyond what's built), no account deletion. No second
+service yet to actually call the internal gRPC `Authenticate` endpoint this
+service already exposes — see [`02-architecture.md`](02-architecture.md).

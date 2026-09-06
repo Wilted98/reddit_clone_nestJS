@@ -24,16 +24,16 @@ Field-by-field, with the reasoning:
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id String @default(cuid())`         | See "Why `cuid`, not auto-increment" below.                                                                                                                                                                                                  |
 | `username String @unique`            | The public handle. Unique so `user(username)` lookups are unambiguous.                                                                                                                                                                       |
-| `email String @unique`               | Login identifier (once login exists). Unique so a person can't register twice with the same email.                                                                                                                                           |
+| `email String @unique`               | The `login` identifier. Unique so a person can't register twice with the same email.                                                                                                                                                         |
 | `password String`                    | **The hash, never the plaintext.** See [`04-authentication.md`](04-authentication.md). The field is named `password`, not `passwordHash` — worth knowing if you go looking for it, though `passwordHash` would arguably be the clearer name. |
-| `bio String?`                        | Nullable, freeform. No update mutation exists yet to set it — the column exists ahead of the feature.                                                                                                                                        |
+| `bio String?`                        | Nullable, freeform. Settable via the `updateUser` mutation ([`04-authentication.md`](04-authentication.md)).                                                                                                                                 |
 | `createdAt DateTime @default(now())` | Set once, by Postgres, at insert time.                                                                                                                                                                                                       |
-| `updatedAt DateTime @updatedAt`      | Prisma sets this automatically on every `update()` call. Note: `createUser` only ever `create()`s, so today this is always equal to `createdAt` — it will start diverging the moment an update path (e.g. editing `bio`) exists.             |
+| `updatedAt DateTime @updatedAt`      | Prisma sets this automatically on every `update()` call — `updateUser` now exercises this path, so it diverges from `createdAt` the first time a profile is edited.                                                                          |
 
-Two columns exist for functionality that isn't built yet (`avatarUrl`,
-`bio`'s update path). That's a deliberate, cheap bet: adding a nullable
-column to an empty table later is a trivial migration; the cost of having it
-one migration early is zero.
+`avatarUrl` and `bio` both started as columns for functionality that didn't
+exist yet — a deliberate, cheap bet: adding a nullable column to an empty
+table is a trivial migration, so paying for it one migration early costs
+nothing. Both are now live via `updateUser`.
 
 ## Why `cuid`, not auto-increment integers
 

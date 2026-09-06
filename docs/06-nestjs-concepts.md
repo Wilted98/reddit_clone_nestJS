@@ -187,9 +187,72 @@ _return_ and a type you can _pass as an argument_. A `class-validator`
 decorator (`@IsEmail()`, etc.) sits right next to the `@Field()` decorator on
 the same property — the schema shape and the validation rule for that exact
 field are declared in the same place, not in two files that could drift
-apart. Whether those rules currently run at request time is a separate
-question — see [`04-authentication.md`](04-authentication.md) "Known gaps"
-§3.
+apart. That validation is enforced today by a global `ValidationPipe` — see
+[`04-authentication.md`](04-authentication.md) §3 for the history of that
+pipe (it was missing for a while, found by testing).
+
+## Guards, Strategies, and the bug that comes from confusing them
+
+`me` and `updateUser` are protected by a **guard**:
+
+```ts
+// users.resolver.ts
+@UseGuards(GqlAuthGuard)
+@Query(() => User, { name: 'me' })
+async getMe(@CurrentUser() token: TokenPayload) {
+  return this.usersService.getUser({ id: token.userId });
+}
+```
+
+`@UseGuards(...)` tells Nest to run `GqlAuthGuard.canActivate()` before the
+method body — if it returns (or resolves to) `false`, the request never
+reaches `getMe` at all. `@CurrentUser()` is a small custom decorator
+([`current-user.decorator.ts`](../apps/backend/auth/src/app/auth/current-user.decorator.ts))
+that just reads `request.user` — the guard's job, specifically, is to put
+something there before the resolver runs.
+
+`GqlAuthGuard` here is `AuthGuard('jwt')` from `@nestjs/passport` — a factory
+that returns a guard delegating to whatever Passport **strategy** is
+registered under the name `'jwt'`. That indirection (guard → named strategy,
+not guard → verification logic directly) is Passport's whole model: many
+guards can share one strategy, and the strategy is where the actual
+"how do I verify this" logic lives:
+
+```ts
+// strategies/jwt.strategy.ts
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor(configService: ConfigService) {
+    super({
+      jwtFromRequest: ExtractJwt.fromExtractors([...]),
+      secretOrKey: configService.getOrThrow('JWT_SECRET'),
+    });
+  }
+  validate(payload: TokenPayload) {
+    return payload; // becomes request.user
+  }
+}
+```
+
+**The mechanism worth understanding precisely, because it's the shape of a
+real bug this codebase had:** a strategy only becomes "registered under the
+name `'jwt'`" when Nest actually **constructs** an instance of this class —
+the `PassportStrategy` mixin calls Passport's `passport.use(...)` inside its
+own constructor. Declaring the class is not enough. Importing it into a file
+is not enough. It has to appear in some module's `providers` array (or be
+otherwise resolvable via DI), or Nest never has a reason to construct it.
+
+`JwtStrategy` was missing both `@Injectable()` and a `providers` entry, so it
+was never constructed, so `'jwt'` was never registered, so
+`AuthGuard('jwt')` failed on _every_ call — not "rejected invalid tokens,"
+_failed outright_, with `Unknown authentication strategy "jwt"`, regardless
+of whether the token was valid. See
+[`04-authentication.md`](04-authentication.md) §4 for the full story and the
+regression test built from it — the general lesson worth keeping: **a
+guard's own tests can't catch a strategy-registration bug if they mock the
+guard or the strategy away**, since the bug lives entirely in whether Nest's
+DI container ever constructed the strategy in the first place. Catching it
+needs a test that boots the real module.
 
 ## The bootstrap sequence
 
@@ -197,16 +260,21 @@ question — see [`04-authentication.md`](04-authentication.md) "Known gaps"
 // main.ts
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
-  await app.listen(port);
+  app.connectMicroservice<GrpcOptions>({ transport: Transport.GRPC, options: { ... } });
+  await app.startAllMicroservices();
+  await init(app); // @roorin/nestjs — see 02-architecture.md
 }
 ```
 
 `NestFactory.create(AppModule)` walks the entire module tree starting from
 `AppModule`, builds the DI container, and constructs every provider in
 dependency order (`PrismaService` before `UsersService` before
-`UsersResolver`, since each depends on the previous). `app.listen(port)`
-starts the actual HTTP server only after all of that is wired up. The
+`UsersResolver`, since each depends on the previous — and, per the bug above,
+only providers actually _listed_ somewhere ever get constructed at all).
+`connectMicroservice` + `startAllMicroservices` bring up the gRPC side
+_before_ `init()` starts the HTTP listener — `auth` is two servers in one
+process, GraphQL for clients and gRPC for other backend services (see
+[`02-architecture.md`](02-architecture.md)). `init()`'s own
 `setGlobalPrefix('api')` call affects REST-style routes; it does not move the
 GraphQL endpoint, which Apollo serves at `/graphql` regardless — worth
 knowing the first time you go looking for the GraphQL endpoint at

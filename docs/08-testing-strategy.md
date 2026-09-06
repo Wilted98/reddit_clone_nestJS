@@ -2,71 +2,120 @@
 
 ## The pyramid used here
 
-Three layers, each testing a different thing, deliberately not overlapping:
+Four layers, each testing a different thing, deliberately not overlapping:
 
-| Layer                     | Tests                                                                                    | Real dependencies?     | Run with          |
-| ------------------------- | ---------------------------------------------------------------------------------------- | ---------------------- | ----------------- |
-| **Unit — service**        | Business logic: hashing, error translation, argument shape                               | No — Prisma is mocked  | `nx test auth`    |
-| **Unit — DTO validation** | The `class-validator` rules themselves, in isolation                                     | No                     | `nx test auth`    |
-| **Unit — resolver**       | The resolver forwards the right arguments and returns the service's result, nothing more | No — service is mocked | `nx test auth`    |
-| **E2E**                   | The real server, real Postgres, over real HTTP                                           | Yes                    | `nx e2e auth-e2e` |
+| Layer                            | Tests                                                                                         | Real dependencies?                                     | Run with          |
+| -------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------- |
+| **Unit — service**               | Business logic: hashing, password verification, error translation, argument shape             | No — Prisma is mocked                                  | `nx test auth`    |
+| **Unit — DTO validation**        | The `class-validator` rules themselves, in isolation                                          | No                                                     | `nx test auth`    |
+| **Unit — resolver / controller** | The adapter layer forwards the right arguments and returns the service's result, nothing more | No — service is mocked                                 | `nx test auth`    |
+| **Integration — module wiring**  | Whether Nest's DI container actually constructs and connects everything a module claims to    | Only the DB is mocked; real Passport, real JWT signing | `nx test auth`    |
+| **E2E**                          | The real server, real Postgres, over real HTTP                                                | Yes                                                    | `nx e2e auth-e2e` |
 
 The rule that keeps these from becoming redundant: **unit tests prove the
-logic is correct in isolation; the e2e test proves the pieces are actually
-wired together correctly.** Neither substitutes for the other — a unit test
-with everything mocked can't catch a wiring mistake (e.g. the missing
-`await` bug below, which no mock-based test happened to exercise the right
-way to catch), and an e2e test alone would make every edge case slow and
-DB-dependent to verify.
+logic is correct in isolation; the integration test proves a specific piece
+of module wiring is actually connected; the e2e test proves the whole system
+is wired together correctly end to end.** None substitutes for the others —
+a unit test with everything mocked can't catch a wiring mistake (the
+`JwtStrategy` registration bug below is exactly that: every unit test around
+it passed while the feature was completely broken), and an e2e test alone
+would make every edge case slow and DB-dependent to verify.
 
 ## Unit tests
 
 ### [`users.service.spec.ts`](../apps/backend/auth/src/app/users/users.service.spec.ts)
 
-Mocks `PrismaService` entirely — the test never touches a real database. This
-tests the four things `UsersService` is actually responsible for deciding:
+Mocks `PrismaService` entirely — the test never touches a real database.
+Covers `createUser` (hashes before persisting, translates `P2002` into a
+`ConflictException` naming the field(s), rethrows anything else unchanged),
+`getUser` (passes the `where` clause through unchanged, translates `P2025`
+into a `NotFoundException`), and `updateUser` (updates only the given user
+with the given fields — and its **not-found path is deliberately left
+uncaught**, documented in a comment: it's the same shape bug `getUser` used
+to have, not fixed here, tracked in
+[`04-authentication.md`](04-authentication.md) "Residual").
 
-- The password is hashed before being handed to Prisma, and the plaintext
-  never is.
-- A duplicate-field (`P2002`) error becomes a `ConflictException` with the
-  right message, for one field, multiple fields, and no field info at all.
-- Any other error (a different Prisma code, a plain connection error) is
-  rethrown unchanged, not swallowed or miscategorized.
-- `getUser` passes its argument through to Prisma's `where` clause unchanged,
-  for any unique field, and turns a not-found result into a `NotFoundException`
-  rather than an unhandled error.
+Three of the `createUser`/`getUser` tests **initially failed** against the
+implementation at the time they were written — not because the tests were
+wrong, but because they caught real bugs (a missing `await` defeating a
+`try/catch`, and a missing not-found mapping). Both have since been fixed;
+see [`04-authentication.md`](04-authentication.md) "Bugs found while
+testing" for the full history.
 
-Three of these tests **initially failed** against the implementation at the
-time — not because the tests were wrong, but because they caught real bugs
-(a missing `await` defeating a `try/catch`, and a missing not-found mapping).
-Both have since been fixed; see
-[`04-authentication.md`](04-authentication.md) "Bugs found while testing" for
-the full history. The suite is green now, which is the point of having
-written the _intended_ behavior as the test rather than adjusting the test to
-match whatever the implementation happened to do.
+### [`create-user.input.spec.ts`](../apps/backend/auth/src/app/users/dto/create-user.input.spec.ts), [`login.input.spec.ts`](../apps/backend/auth/src/app/auth/dto/login.input.spec.ts), [`update-user.input.spec.ts`](../apps/backend/auth/src/app/users/dto/update-user.input.spec.ts)
 
-### [`create-user.input.spec.ts`](../apps/backend/auth/src/app/users/dto/create-user.input.spec.ts)
+Call `class-validator`'s `validate()` directly on DTO instances — no NestJS,
+no HTTP, no `ValidationPipe`. These prove the decorators declared on each DTO
+are individually correct, independent of whatever enforces them at the
+request layer. `main.ts` registers a global `ValidationPipe`, so these rules
+are enforced end-to-end today — see
+[`04-authentication.md`](04-authentication.md) §3 for that history.
+`login.input.spec.ts` also asserts the deliberate asymmetry with
+registration: login does **not** enforce password strength, because a login
+attempt has to accept whatever the user's password already is, policy
+changes notwithstanding.
 
-Calls `class-validator`'s `validate()` directly on `CreateUserInput`
-instances — no NestJS, no HTTP, no `ValidationPipe`. This proves the
-decorators declared on the DTO (username length/character rules, email
-format, password strength) are individually correct, independent of whatever
-enforces them at the request layer. `main.ts` now also registers a global
-`ValidationPipe`, so these rules are enforced end-to-end today — see
-[`04-authentication.md`](04-authentication.md) §3 for that history and the
-e2e verification of it.
+### [`users.resolver.spec.ts`](../apps/backend/auth/src/app/users/users.resolver.spec.ts), [`auth.resolver.spec.ts`](../apps/backend/auth/src/app/auth/auth.resolver.spec.ts)
 
-### [`users.resolver.spec.ts`](../apps/backend/auth/src/app/users/users.resolver.spec.ts)
+Mock the service each resolver depends on. These exist specifically to catch
+the resolver forwarding the _wrong shape_ of argument — e.g. passing the raw
+GraphQL args object instead of `{ username }`, or a client-suppliable id
+instead of the token's own — which a service-level test can't see, since the
+service test never goes through the resolver at all. `users.resolver.spec.ts`
+in particular proves `getMe`/`updateUser` use the id from `@CurrentUser()`,
+never anything a client could pass in — that guarantee only exists because
+the resolver never _accepts_ an id argument on those two operations at all,
+and this test is what makes that observable.
 
-Mocks `UsersService`. Exists specifically to catch the resolver forwarding
-the _wrong shape_ of argument — e.g. passing the raw GraphQL args object to
-`getUser` instead of `{ username }` — which a service-level test can't see,
-since the service test never goes through the resolver at all.
+### [`auth.service.spec.ts`](../apps/backend/auth/src/app/auth/auth.service.spec.ts)
+
+Mocks `UsersService`, `ConfigService`, `JwtService`, and `bcryptjs.compare`.
+Covers: the password is checked against the stored hash (not the plaintext);
+the signed JWT payload contains only `userId`; the cookie is `httpOnly` with
+the configured expiry and is `secure` only when `NODE_ENV=production`; a
+wrong password and an unknown email produce **the exact same error message**
+(checked by comparing both directly in one test, not just asserting each
+independently — a message that happens to be identical by coincidence in two
+separate assertions wouldn't catch a future change that breaks the symmetry).
+
+### [`auth.controller.spec.ts`](../apps/backend/auth/src/app/auth/auth.controller.spec.ts)
+
+Mocks `UsersService`. Covers the gRPC face's shaping of a Prisma user into
+the proto `User` contract — notably, `avatarUrl: null` becomes `''`, since
+proto3 has no concept of `null` for a string field.
+
+### [`jwt.strategy.spec.ts`](../apps/backend/auth/src/app/auth/strategies/jwt.strategy.spec.ts)
+
+The strategy's own logic is trivial (`validate()` just returns its input),
+so this is a small test. The bigger question — "is this strategy ever
+actually reachable" — is not something a unit test of the class in isolation
+can answer, which is why the next test exists.
+
+### [`auth.module.spec.ts`](../apps/backend/auth/src/app/auth/auth.module.spec.ts) — integration
+
+Boots the **real** `AuthModule` via `Test.createTestingModule`, mocking only
+`PrismaService`, then drives a validly-signed JWT through the real
+`JwtAuthGuard`. This is the regression test for a bug where `JwtStrategy` was
+defined but never added to any module's `providers` and had no
+`@Injectable()` — meaning Passport never registered a `'jwt'` strategy at
+all, and every guarded operation (`me`, `updateUser`, the gRPC
+`authenticate`) failed outright with `Unknown authentication strategy "jwt"`,
+regardless of whether the caller's token was valid.
+
+This is the clearest example in this codebase of _why_ the integration layer
+exists as its own thing, distinct from unit tests: every other test file
+mocks the guard, the strategy, or both — by design, since that's what makes
+them fast and focused. None of them touch the one thing this bug lived in
+(whether Nest's DI container ever constructs the strategy at all), so none
+of them could have caught it. Only a test that boots the real module and
+drives a real request through the real guard can. See
+[`04-authentication.md`](04-authentication.md) §4 and
+[`06-nestjs-concepts.md`](06-nestjs-concepts.md) "Guards, Strategies, and the
+bug that comes from confusing them" for the full mechanism.
 
 ### [`prisma.service.spec.ts`](../apps/backend/auth/src/app/prisma/prisma.service.spec.ts)
 
-Pre-existing, not added as part of this pass — a minimal "the service
-constructs" smoke test.
+Pre-existing — a minimal "the service constructs" smoke test.
 
 Run all of the above:
 
@@ -76,59 +125,61 @@ npx nx test auth
 
 ## End-to-end tests
 
+Both spec files share [`support/gql.ts`](../apps/backend/auth-e2e/src/support/gql.ts) —
+a small `axios`-based GraphQL client (with `validateStatus` disabled so 4xx
+responses resolve normally instead of throwing) plus `registerAndLogin()`,
+which handles the register → login → capture-cookie sequence every
+authenticated test needs.
+
 ### [`users.spec.ts`](../apps/backend/auth-e2e/src/users/users.spec.ts)
 
-Boots the real `auth` build against the real Postgres instance
-(`docker-compose.yaml`) and drives it over actual HTTP with `axios`, the same
-way a real client would. This is where "does the whole thing actually work
-when wired together" gets answered — mocks can't answer that question by
-construction.
+Boots the real `auth` build against the real Postgres instance and drives it
+over actual HTTP, the same way a real client would. Covers registration and
+its exact response shape, the schema refusing to let a client even request
+the `password` field, username lookup, an unknown username's `404`-shaped
+error, a duplicate email/username's `409`-shaped conflict, and the
+`ValidationPipe` rejecting a weak password / short username end-to-end.
 
-Covers: successful registration and its exact response shape, the schema
-refusing to let a client even request the `password` field, looking a user
-up by username, an unknown username returning a `404`-shaped error without
-crashing the process, and a duplicate email/username returning a `409`-shaped
-conflict — all asserting the exact response shapes documented in
-[`07-graphql-api-reference.md`](07-graphql-api-reference.md), verified
-against the real running server rather than inferred.
+### [`auth.spec.ts`](../apps/backend/auth-e2e/src/auth/auth.spec.ts)
 
-Every claim in that file about response shapes was checked against a real
-running instance while writing it — not inferred from reading the source —
-using the sequence:
+The login/session flow: `login` sets a cookie that a subsequent `me` accepts;
+`me` and `updateUser` both reject a missing or garbage cookie with
+`UNAUTHENTICATED`; a wrong password and an unknown email produce the
+identical message; `updateUser` changes only the authenticated caller's own
+profile; and `logout` clears the cookie for future requests while
+documenting — not just asserting away — that it does **not** revoke the
+underlying token server-side (replaying the exact old cookie value still
+authenticates, since there is no revocation store).
+
+Every claim in both files about response shapes was checked against a real
+running instance while writing it, not inferred from reading the source.
+
+Run both:
 
 ```bash
 docker compose up -d postgres
-npx nx run auth:migrate-prisma --name init
-npx nx build auth
-node dist/apps/backend/auth/main.js
-# then curl http://localhost:3000/graphql with the mutations/queries in question
+npx nx e2e auth-e2e
 ```
 
-### Known issue: the e2e harness currently cannot run via `nx e2e`
+### History: the e2e harness could not run via `nx e2e` at all
 
-**This blocks `nx e2e auth-e2e` entirely, for every test in the project,
-independent of anything in `users.spec.ts`.**
+Worth keeping on record, since it explains why earlier verification in this
+project's history used manual `curl` against a manually-started server
+instead of `nx e2e`. NX's default generated e2e scaffold
+(`global-setup.ts`) wrote an untyped key onto `globalThis`, which failed to
+compile under this workspace's `tsconfig.base.json` (`"strict": true`) with:
 
 ```
-apps/backend/auth-e2e/src/support/global-setup.ts:15:14
 error TS7017: Element implicitly has an 'any' type because type
 'typeof globalThis' has no index signature.
-  globalThis.__TEARDOWN_MESSAGE__ = '\nTearing down...\n';
 ```
 
-This file is NX's default generated e2e scaffold — nobody hand-wrote it as
-part of this project's logic, and it hasn't been touched here. It compiles
-under a default (non-strict) `tsconfig`, but this workspace's
-[`tsconfig.base.json`](../tsconfig.base.json) sets `"strict": true`, which
-this scaffold's pattern (writing an untyped key onto `globalThis`) doesn't
-satisfy. The fix is small — type the global explicitly, e.g.
-`declare global { var __TEARDOWN_MESSAGE__: string; }` — but changing it
-wasn't done here per the constraint this pass was done under (make tests and
-docs only, touch nothing else). Until it's fixed, verifying e2e behavior
-means running the manual sequence above rather than `nx e2e`.
-
-A second, smaller issue in the same untouched scaffold, worth knowing before
-relying on it: `global-teardown.ts` calls `killPort(3000)` unconditionally.
-If you happen to have a dev server already running on port 3000 when the e2e
-task finishes, this kills it — it doesn't check that the port belongs to the
-process this test run started.
+This blocked `nx e2e auth-e2e` **entirely**, for every test in the project,
+independent of anything in any individual spec file. Fixed by declaring the
+global explicitly (`declare global { var __TEARDOWN_MESSAGE__: string; }`).
+A second issue in the same scaffold was fixed alongside it:
+`global-teardown.ts` called `killPort(3000)` unconditionally, which would
+kill _any_ process on that port, including an unrelated dev server you
+happened to already have running — replaced with a no-op, since NX already
+owns the lifecycle of the `auth:serve` task this target depends on and stops
+it itself.
