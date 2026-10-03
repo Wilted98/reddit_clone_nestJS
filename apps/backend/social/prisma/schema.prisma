@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../../node_modules/@prisma-clients/roorin-social"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Community {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  ownerId     String
+
+  // Denormalized counter. Starts at 1 if the owner is considered a member,
+  // otherwise leave it at 0 until Membership is introduced.
+  memberCount Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([memberCount])
+}

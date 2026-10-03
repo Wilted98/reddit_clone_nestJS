@@ -11,4 +11,5 @@
 | 7   | [`07-graphql-api-reference.md`](07-graphql-api-reference.md) | Every query/mutation that exists today, with example requests                                                     |
 | 8   | [`08-testing-strategy.md`](08-testing-strategy.md)           | The testing pyramid used here, how to run each layer, what's covered                                              |
 
-##
+The social service scaffold is documented in
+[`09-social-service.md`](09-social-service.md).

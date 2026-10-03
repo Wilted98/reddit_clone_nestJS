@@ -1,0 +1,103 @@
+{
+  "name": "social",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/backend/social/src",
+  "projectType": "application",
+  "tags": ["scope:social", "type:app"],
+  "targets": {
+    "build": {
+      "dependsOn": ["generate-prisma"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "webpack-cli build",
+        "env": {
+          "NODE_ENV": "production"
+        },
+        "cwd": "apps/backend/social"
+      },
+      "configurations": {
+        "development": {
+          "env": {
+            "NODE_ENV": "development"
+          }
+        },
+        "production": {
+          "env": {
+            "NODE_ENV": "production"
+          }
+        }
+      }
+    },
+    "prune-lockfile": {
+      "dependsOn": ["build"],
+      "cache": true,
+      "executor": "@nx/js:prune-lockfile",
+      "outputs": [
+        "{workspaceRoot}/dist/apps/backend/social/package.json",
+        "{workspaceRoot}/dist/apps/backend/social/package-lock.json"
+      ],
+      "options": {
+        "buildTarget": "build"
+      }
+    },
+    "copy-workspace-modules": {
+      "dependsOn": ["build"],
+      "cache": true,
+      "outputs": ["{workspaceRoot}/dist/apps/backend/social/workspace_modules"],
+      "executor": "@nx/js:copy-workspace-modules",
+      "options": {
+        "buildTarget": "build"
+      }
+    },
+    "prune": {
+      "dependsOn": ["prune-lockfile", "copy-workspace-modules"],
+      "executor": "nx:noop"
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "dependsOn": ["build"],
+      "options": {
+        "buildTarget": "social:build",
+        "runBuildTargetDependencies": true,
+        "port": 9231
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "social:build:development"
+        },
+        "production": {
+          "buildTarget": "social:build:production",
+          "inspect": false
+        }
+      }
+    },
+    "generate-prisma": {
+      "command": "prisma generate",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "cache": false
+    },
+    "migrate-prisma": {
+      "command": "prisma migrate dev",
+      "options": {
+        "cwd": "{projectRoot}",
+        "input": ["prisma/schema.prisma"]
+      }
+    },
+    "deploy-prisma": {
+      "command": "prisma migrate deploy",
+      "options": {
+        "cwd": "{projectRoot}"
+      }
+    },
+    "test": {
+      "dependsOn": ["generate-prisma"],
+      "options": {
+        "passWithNoTests": false
+      }
+    }
+  }
+}
