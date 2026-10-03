@@ -36,6 +36,21 @@
         "${workspaceFolder}/apps/backend/auth/dist/**/*.(m|c|)js",
         "!**/node_modules/**"
       ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug social with Nx",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nx", "serve", "social"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/dist/apps/backend/social/**/*.js",
+        "!**/node_modules/**"
+      ]
     }
   ]
 }
