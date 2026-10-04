@@ -49,7 +49,7 @@ has it.
 ```ts
 // users.module.ts
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, RateLimitModule],
   providers: [UsersResolver, UsersService],
   exports: [UsersService],
 })
@@ -64,7 +64,8 @@ Three lists, three different jobs:
 - **`imports`** — other modules whose **exported** providers this module can
   inject. `UsersModule` imports `PrismaModule` specifically so
   `UsersService`'s constructor (which asks for `PrismaService`) can be
-  satisfied.
+  satisfied. `RateLimitModule` exports the GraphQL limiter and its shared
+  configuration/storage for registration.
 - **`exports`** — which of this module's own providers other modules are
   allowed to inject if _they_ import `UsersModule`. `UsersService` is
   exported; `UsersResolver` is not, because nothing outside this module
@@ -111,14 +112,16 @@ needs. Nothing exports anything from here because nothing imports
 export class UsersResolver {
   constructor(private readonly usersService: UsersService) {}
 
-  @Mutation(() => User)
+  @UseGuards(GqlThrottlerGuard)
+  @SkipThrottle({ login: true })
+  @Mutation(() => Account)
   async createUser(@Args('createUserInput') createUserInput: CreateUserInput) {
     return this.usersService.createUser(createUserInput);
   }
 
   @Query(() => User, { name: 'user' })
   async getUser(@Args('username') username: string) {
-    return this.usersService.getUser({ username });
+    return this.usersService.getPublicUser(username);
   }
 }
 ```
@@ -130,11 +133,14 @@ database access. That's deliberate:
 
 - `@Resolver(() => User)` tells `@nestjs/graphql` this class handles
   operations related to the `User` GraphQL type.
-- `@Mutation(() => User)` / `@Query(() => User, { name: 'user' })` register
+- `@Mutation(() => Account)` / `@Query(() => User, { name: 'user' })` register
   the method as a schema field, with the given return type. The string
   `'user'` in the query is the field name clients actually call — it doesn't
   have to match the method name (`getUser`), and here it deliberately
   doesn't, to keep the method name descriptive on the TypeScript side.
+  `Account` includes private email for the new/own account; public `User`
+  does not. `@UseGuards(GqlThrottlerGuard)` limits registration before the
+  resolver runs; `@SkipThrottle({ login: true })` skips the unrelated budget.
 - `@Args('createUserInput')` / `@Args('username')` extract arguments from the
   incoming GraphQL operation and pass them as regular method parameters.
 
@@ -142,8 +148,7 @@ The **service** holds every actual decision:
 [`users.service.ts`](../apps/backend/auth/src/app/users/users.service.ts)
 hashes the password, decides what a duplicate-email error looks like, talks
 to Prisma. This split means the business logic doesn't know or care that
-GraphQL exists — if a second entry point were added later (a gRPC endpoint,
-say, for a future service to call `getUser` internally), it would call
+GraphQL exists — the existing gRPC authentication controller also calls
 `UsersService` directly, no resolver involved. `UsersService` has no
 `@nestjs/graphql` import anywhere in it — that's the tell that the split is
 being honored.
@@ -175,7 +180,7 @@ schema as `avatarUrl: String` (optional) rather than `avatarUrl: String!`
 decorator option does.
 
 `User extends AbstractModel`
-([`libs/nestjs/src/lib/graphql/abstract.model.ts`](../libs/nestjs/src/lib/graphql/abstract.model.ts))
+([`abstract.model.ts`](../libs/backend/nestjs/src/lib/graphql/abstract.model.ts))
 contributes `id` and `createdAt` to the schema without `User` declaring them
 itself — ordinary TypeScript inheritance, decorators included. Every future
 model extends the same base, so `id`/`createdAt` are guaranteed identical
@@ -198,7 +203,7 @@ pipe (it was missing for a while, found by testing).
 ```ts
 // users.resolver.ts
 @UseGuards(GqlAuthGuard)
-@Query(() => User, { name: 'me' })
+@Query(() => Account, { name: 'me' })
 async getMe(@CurrentUser() token: TokenPayload) {
   return this.usersService.getUser({ id: token.userId });
 }

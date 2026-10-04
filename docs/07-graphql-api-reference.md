@@ -28,9 +28,17 @@ type User {
   id: ID!
   createdAt: DateTime!
   username: String!
-  email: String!
   avatarUrl: String
   bio: String
+}
+
+type Account {
+  id: ID!
+  createdAt: DateTime!
+  username: String!
+  avatarUrl: String
+  bio: String
+  email: String!
 }
 
 input CreateUserInput {
@@ -52,7 +60,13 @@ input UpdateUserInput {
 
 `id` and `createdAt` come from `AbstractModel`
 (see [`06-nestjs-concepts.md`](06-nestjs-concepts.md)), not from `User`
-itself. There is deliberately **no `password` field on `User`** — see
+itself. `User` is the public profile returned by `user(username)` and has no
+email. `Account` is returned by `createUser`, successful `login`, `me`, and
+`updateUser`: it includes the new or authenticated caller's own email.
+These are distinct GraphQL object types; an `Account` fragment cannot be
+spread onto `User`, even though the TypeScript class inherits public fields.
+
+There is deliberately **no `password` field on either type** — see
 [`04-authentication.md`](04-authentication.md) "What exists today": this
 isn't a resolver choosing not to return it, it's the schema not having a way
 to ask for it at all. Try it:
@@ -62,7 +76,7 @@ mutation { createUser(createUserInput: { ... }) { id password } }
 ```
 
 ```json
-{ "errors": [{ "message": "Cannot query field \"password\" on type \"User\"." }] }
+{ "errors": [{ "message": "Cannot query field \"password\" on type \"Account\"." }] }
 ```
 
 That's a query-validation error, rejected before any resolver runs.
@@ -71,8 +85,9 @@ That's a query-validation error, rejected before any resolver runs.
 
 ### `createUser`
 
-Registers a new user. Hashes the password before storing it and validates
-the input (username length/characters, email format, password strength) via
+Registers a new user and returns their `Account`. Hashes the password before
+storing it and validates the input (username length/characters, email format,
+password strength) via
 a global `ValidationPipe` — see [`04-authentication.md`](04-authentication.md)
 for the exact rules and their history (this validation was missing until
 recently; that doc explains what changed).
@@ -127,7 +142,7 @@ Postgres driver adapter in use here.
 
 Verifies the password and, on success, sets an httpOnly `Authentication`
 cookie — see [`04-authentication.md`](04-authentication.md) for exactly what
-that cookie contains and its flags. Returns the same `User` shape as
+that cookie contains and its flags. Returns the same `Account` shape as
 `createUser`.
 
 ```graphql
@@ -140,7 +155,8 @@ mutation {
 ```
 
 **Wrong password or unknown email — identical response either way** (no
-account-enumeration oracle):
+email-existence disclosure through the error message; timing behavior is
+not covered by that guarantee):
 
 ```json
 { "errors": [{ "message": "Credentials are not valid.", "extensions": { "code": "UNAUTHENTICATED", "originalError": { "message": "Credentials are not valid.", "error": "Unauthorized", "statusCode": 401 } } }] }
@@ -168,8 +184,9 @@ practice.
 
 ### `updateUser` _(requires the `Authentication` cookie)_
 
-Updates the **caller's own** profile — there is no argument for which user
-to update; the id comes from the cookie, never from client input.
+Returns `Account` and updates the **caller's own** profile. There is no
+argument for which user to update; the id comes from the cookie, never from
+client input.
 
 ```graphql
 mutation {
@@ -191,7 +208,7 @@ mutation {
 
 ### `me` _(requires the `Authentication` cookie)_
 
-Returns the **caller's own** profile — same non-argument-for-identity
+Returns the **caller's own** `Account` — same non-argument-for-identity
 pattern as `updateUser`, and the same `UNAUTHENTICATED` shape without a valid
 cookie.
 
@@ -209,7 +226,10 @@ cookie.
 
 ### `user`
 
-Public profile lookup by username.
+Public profile lookup by username, returning `User`. The database query
+selects only `id`, `createdAt`, `username`, `avatarUrl`, and `bio`.
+Email selections (including aliases) fail GraphQL validation, whether the
+caller is anonymous or signed in. Use `me` to retrieve your own email.
 
 ```graphql
 {
@@ -236,10 +256,33 @@ part is inherent to the schema, not an error-handling gap.
 { "errors": [{ "message": "User not found", "extensions": { "code": "INTERNAL_SERVER_ERROR", "originalError": { "message": "User not found", "error": "Not Found", "statusCode": 404 } } }], "data": null }
 ```
 
+## Login and registration rate limits
+
+Each client IP has independent budgets: **10 login attempts** and **5
+registrations** per **60 seconds**, configurable through auth's `.env`.
+Wrong credentials, DTO validation failures, and each aliased mutation field
+consume the matching budget. Other operations and internal gRPC calls are
+not covered by these guards. Exceeding a budget blocks that operation for
+another TTL period (60 seconds by default).
+
+A resolver-level rate-limit error retains HTTP `200` like other GraphQL
+execution errors. Clients should read
+`errors[].extensions.originalError.statusCode` (`429`) and the standard
+`Retry-After` response header (seconds). Named `X-RateLimit-*` headers carry
+the `login` or `register` suffix.
+
+```json
+{ "errors": [{ "message": "Too many requests. Please try again later.", "extensions": { "code": "INTERNAL_SERVER_ERROR", "originalError": { "statusCode": 429, "message": "Too many requests. Please try again later.", "error": "Too Many Requests" } } }], "data": null }
+```
+
+See [authentication configuration and deployment limitations](04-authentication.md#login-and-registration-rate-limiting)
+and [the small-batch MVP roadmap](10-mvp-roadmap.md).
+
 ## What's not here yet
 
 No password reset, no email verification, no refresh tokens (the access
 token _is_ the session — see [`04-authentication.md`](04-authentication.md)
-"Planned" territory beyond what's built), no account deletion. No second
-service yet to actually call the internal gRPC `Authenticate` endpoint this
-service already exposes — see [`02-architecture.md`](02-architecture.md).
+for session details), no account deletion. Social already calls auth's
+internal gRPC `Authenticate` endpoint for guarded operations; this internal
+contract is unchanged by the public GraphQL privacy split. See
+[`02-architecture.md`](02-architecture.md).

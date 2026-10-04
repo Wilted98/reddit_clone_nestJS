@@ -13,3 +13,7 @@
 
 Communities, membership rules, posts, nested comments, votes, feeds, and their tests are documented in
 [`09-social-service.md`](09-social-service.md).
+
+[`10-mvp-roadmap.md`](10-mvp-roadmap.md) records the public/private profile
+split, auth rate limits, client migration, deployment limitations, and the
+next one-or-two-feature batches.

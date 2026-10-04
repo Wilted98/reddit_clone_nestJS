@@ -1,7 +1,7 @@
 import { gql, uniq } from '../support/gql';
 
 describe('users (createUser, user)', () => {
-  it('registers a user and returns the public profile fields', async () => {
+  it('registers a user and returns their own account fields', async () => {
     const username = uniq('user');
     const res = await gql<{ createUser: Record<string, unknown> }>(`
       mutation {
@@ -49,7 +49,7 @@ describe('users (createUser, user)', () => {
     `);
 
     const res = await gql<{ user: { username: string } }>(`
-      { user(username: "${username}") { username email } }
+      { user(username: "${username}") { username avatarUrl bio createdAt } }
     `);
 
     expect(res.data.data?.user.username).toBe(username);
@@ -119,7 +119,7 @@ describe('users (createUser, user)', () => {
       `);
 
       const res = await gql<{ user: { username: string } }>(`
-        { user(username: "${username}") { username email } }
+        { user(username: "${username}") { username } }
       `);
       expect(res.data.data?.user.username).toBe(username);
     });

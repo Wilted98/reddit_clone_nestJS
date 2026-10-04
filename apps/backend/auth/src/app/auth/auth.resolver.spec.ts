@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { AuthResolver } from './auth.resolver';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
+import { GqlThrottlerGuard } from '../rate-limit/gql-throttler.guard';
 
 /**
  * Like UsersResolver, this class has no logic of its own - it just extracts
@@ -23,7 +24,10 @@ describe('AuthResolver', () => {
         AuthResolver,
         { provide: AuthService, useValue: authService },
       ],
-    }).compile();
+    })
+      .overrideGuard(GqlThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     resolver = module.get(AuthResolver);
   });

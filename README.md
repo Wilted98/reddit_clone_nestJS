@@ -8,7 +8,7 @@ are not implemented yet.
 
 ## Local setup
 
-Install Node.js 22+, npm, and Docker with Compose. From the repository root:
+Install Node.js 22.12+ (22.x) or 24+, npm, and Docker with Compose. From the repository root:
 
 ```bash
 npm ci
@@ -60,7 +60,7 @@ Stop Postgres with `docker compose down`; this preserves its volume.
 ## Verification
 
 ```bash
-npx nx run-many -t lint -p auth,social,social-e2e
+npx nx run-many -t lint -p auth,social,auth-e2e,social-e2e
 npx nx run-many -t test,build -p auth,social
 npx nx e2e auth-e2e
 npx nx e2e social-e2e
@@ -68,8 +68,13 @@ npx nx e2e social-e2e
 
 Unit specs use mocks and do not require Postgres. E2E tests need both databases
 migrated and create unique test records. Nx manages the required service
-processes; `social-e2e` starts both auth and social. Run E2E targets separately
-with the normal development servers stopped to avoid port conflicts.
+processes; both E2E targets use `auth:serve-e2e`, which raises auth budgets
+to 1000 for test fixtures only. `social-e2e` also starts social. Normal
+`nx serve auth` defaults remain 10 logins and 5 registrations per IP within
+60 seconds; optional overrides are in auth's `.env.example`. Do not deploy
+the E2E server target. Low-limit HTTP integration tests run with `nx test auth`.
+Run E2E targets separately with normal development servers stopped to avoid
+port conflicts.
 
 ## Documentation
 
@@ -77,3 +82,7 @@ Start with [the documentation index](docs/README.md). See
 [the social service guide](docs/09-social-service.md) for operations, membership
 rules, soft deletion, and test setup, and
 [the testing strategy](docs/08-testing-strategy.md) for test responsibilities.
+Public `user(username)` returns `User` without email; account operations
+return `Account` with the caller's own email. See [the auth API reference](docs/07-graphql-api-reference.md)
+for this breaking contract change and [the MVP roadmap](docs/10-mvp-roadmap.md)
+for the next one-or-two-feature batches.

@@ -151,6 +151,48 @@ describe('UsersService', () => {
     });
   });
 
+  describe('getPublicUser', () => {
+    it('selects only public fields without fetching email or password', async () => {
+      const profile = {
+        id: '1',
+        username: 'vasi',
+        createdAt: new Date(),
+        bio: null,
+        avatarUrl: null,
+      };
+      prisma.client.user.findUniqueOrThrow.mockResolvedValue(profile);
+      await expect(service.getPublicUser('vasi')).resolves.toBe(profile);
+      expect(prisma.client.user.findUniqueOrThrow).toHaveBeenCalledWith({
+        where: { username: 'vasi' },
+        select: {
+          id: true,
+          createdAt: true,
+          username: true,
+          avatarUrl: true,
+          bio: true,
+        },
+      });
+    });
+
+    it('maps a missing public profile to a not-found error', async () => {
+      prisma.client.user.findUniqueOrThrow.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('User not found', {
+          code: 'P2025',
+          clientVersion: '7.2.0',
+        }),
+      );
+      await expect(service.getPublicUser('missing')).rejects.toEqual(
+        new NotFoundException('User not found'),
+      );
+    });
+
+    it('propagates unexpected errors from public lookups', async () => {
+      const error = new Error('Database unavailable');
+      prisma.client.user.findUniqueOrThrow.mockRejectedValue(error);
+      await expect(service.getPublicUser('vasi')).rejects.toBe(error);
+    });
+  });
+
   describe('getUser', () => {
     it('looks the user up by whatever unique argument it is given', async () => {
       const found = { id: '1', username: 'vasi' };

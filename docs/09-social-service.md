@@ -215,8 +215,10 @@ npx nx build social
 npx nx e2e social-e2e
 ```
 
-The E2E target builds, starts, and stops both auth and social through Nx. It
-needs a running Postgres instance with both services' migrations applied.
+The E2E target builds, starts, and stops both auth and social through Nx.
+Auth uses `auth:serve-e2e`, which raises login/registration budgets to 1000
+for fixture creation only; ordinary development limits are unchanged.
+The target needs a running Postgres instance with both services' migrations applied.
 Tests register unique users and communities to avoid collisions on reruns.
 `AUTH_HTTP_URL` can override the test client's auth address (default
 `http://localhost:3000`); the social test address uses `HOST` and `PORT`

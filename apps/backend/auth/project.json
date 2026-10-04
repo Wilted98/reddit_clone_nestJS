@@ -66,6 +66,19 @@
         }
       }
     },
+    "serve-e2e": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "node dist/apps/backend/auth/main.js",
+        "env": {
+          "NODE_ENV": "development",
+          "AUTH_LOGIN_RATE_LIMIT": "1000",
+          "AUTH_REGISTER_RATE_LIMIT": "1000"
+        }
+      }
+    },
     "generate-prisma": {
       "command": "prisma generate",
       "options": {
