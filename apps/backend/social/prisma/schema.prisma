@@ -93,6 +93,7 @@ model Comment {
 
   @@index([postId, createdAt])
   @@index([parentId])
+  @@index([postId, parentId, score(sort: Desc), createdAt, id])
 }
 
 model Vote {

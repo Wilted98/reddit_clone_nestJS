@@ -25,18 +25,19 @@ interface Comment {
   authorUsername: string;
   body: string;
   deletedAt: string | null;
-  replies: Comment[];
+  hasReplies: boolean;
 }
 
 const postFields =
   'id authorId authorUsername body url score commentCount deletedAt';
-const commentFields = 'id parentId authorId authorUsername body deletedAt';
+const commentFields =
+  'id parentId authorId authorUsername body deletedAt hasReplies';
 const createPostQuery = `mutation ($input: CreatePostInput!) { createPost(createPostInput: $input) { ${postFields} } }`;
-const createCommentQuery = `mutation ($input: CreateCommentInput!) { createComment(createCommentInput: $input) { ${commentFields} replies { id } } }`;
+const createCommentQuery = `mutation ($input: CreateCommentInput!) { createComment(createCommentInput: $input) { ${commentFields} } }`;
 const postQuery = `query ($id: String!) { post(id: $id) { ${postFields} } }`;
-const commentsQuery = `query ($postId: String!) { comments(postId: $postId) { ${commentFields} replies { ${commentFields} replies { ${commentFields} } } } }`;
+const commentsQuery = `query ($postId: String!, $parentId: String) { comments(postId: $postId, parentId: $parentId) { items { ${commentFields} } nextCursor hasMore } }`;
 const deletePostQuery = `mutation ($id: String!) { deletePost(id: $id) { ${postFields} } }`;
-const deleteCommentQuery = `mutation ($id: String!) { deleteComment(id: $id) { ${commentFields} replies { id } } }`;
+const deleteCommentQuery = `mutation ($id: String!) { deleteComment(id: $id) { ${commentFields} } }`;
 
 function expectError(response: GqlResponse<unknown>, statusCode: number) {
   expect(response.errors).toEqual(
@@ -112,10 +113,16 @@ describe('Posts and comments through auth and social', () => {
     return expectData(await gql<{ post: Post }>(postQuery, { id })).post;
   }
 
-  async function readComments(postId: string): Promise<Comment[]> {
+  async function readComments(
+    postId: string,
+    parentId?: string,
+  ): Promise<Comment[]> {
     return expectData(
-      await gql<{ comments: Comment[] }>(commentsQuery, { postId }),
-    ).comments;
+      await gql<{ comments: { items: Comment[] } }>(commentsQuery, {
+        postId,
+        parentId,
+      }),
+    ).comments.items;
   }
 
   it('creates member-owned text and link posts with identity supplied by auth', async () => {
@@ -271,7 +278,7 @@ describe('Posts and comments through auth and social', () => {
     ]);
   });
 
-  it('lets authenticated non-members comment and returns nested public replies', async () => {
+  it('lets authenticated non-members comment and exposes public reply pages', async () => {
     const post = await createPost();
     const root = await createComment(post.id);
     const reply = await createComment(post.id, root.id);
@@ -281,11 +288,17 @@ describe('Posts and comments through auth and social', () => {
       authorUsername: outsider.username,
       parentId: null,
     });
-    const tree = await readComments(post.id);
-    expect(tree).toHaveLength(1);
-    expect(tree[0].id).toBe(root.id);
-    expect(tree[0].replies[0].id).toBe(reply.id);
-    expect(tree[0].replies[0].replies[0].id).toBe(nested.id);
+    const roots = await readComments(post.id);
+    expect(roots).toHaveLength(1);
+    expect(roots[0]).toMatchObject({ id: root.id, hasReplies: true });
+    expect((await readComments(post.id, root.id))[0]).toMatchObject({
+      id: reply.id,
+      hasReplies: true,
+    });
+    expect((await readComments(post.id, reply.id))[0]).toMatchObject({
+      id: nested.id,
+      hasReplies: false,
+    });
     expect((await readPost(post.id)).commentCount).toBe(3);
   });
 
@@ -319,9 +332,14 @@ describe('Posts and comments through auth and social', () => {
     ).deleteComment;
     expect(deleted.body).toBe('[deleted]');
     expect(deleted.deletedAt).not.toBeNull();
-    const tree = await readComments(post.id);
-    expect(tree[0]).toMatchObject({ id: root.id, body: '[deleted]' });
-    expect(tree[0].replies[0].id).toBe(reply.id);
+    expect(deleted.hasReplies).toBe(true);
+    const roots = await readComments(post.id);
+    expect(roots[0]).toMatchObject({
+      id: root.id,
+      body: '[deleted]',
+      hasReplies: true,
+    });
+    expect((await readComments(post.id, root.id))[0].id).toBe(reply.id);
     expect((await readPost(post.id)).commentCount).toBe(2);
   });
 

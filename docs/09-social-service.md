@@ -19,8 +19,8 @@ foreign keys.
 - Community creation, public lookup and listing, and guarded join/leave operations.
 - Member-only text/link post creation, public lookup and author pagination,
   and author-only soft deletion.
-- Authenticated comment creation, same-post parent validation, public nested
-  threads, and author-only soft deletion.
+- Authenticated comment creation, same-post parent validation, bounded public
+  root/reply pages, and author-only soft deletion.
 - Authenticated post/comment voting, vote removal, and private batch vote lookups.
 - Public global or community-scoped HOT, NEW, and TOP feeds.
 
@@ -36,26 +36,26 @@ an ID tie-breaker. The moderator role is stored but has no moderation operations
 
 ## GraphQL operations
 
-| Operation                                                 | Access                   | Result                              |
-| --------------------------------------------------------- | ------------------------ | ----------------------------------- |
-| `health`                                                  | Public                   | `"ok"`                              |
-| `community(slug)`                                         | Public                   | One community, or a not-found error |
-| `communities(cursor, limit)`                              | Public                   | `items`, `nextCursor`, `hasMore`    |
-| `createCommunity(createCommunityInput)`                   | Authenticated            | Community with an owner membership  |
-| `joinCommunity(slug)`                                     | Authenticated            | Community after joining             |
-| `leaveCommunity(slug)`                                    | Authenticated, non-owner | Community after leaving             |
-| `post(id)`                                                | Public                   | One post, or a not-found error      |
-| `postsByAuthor(authorId, cursor, limit)`                  | Public                   | Live posts, `nextCursor`, `hasMore` |
-| `createPost(createPostInput)`                             | Authenticated member     | Text or link post                   |
-| `deletePost(id)`                                          | Authenticated author     | Soft-deleted post                   |
-| `comments(postId)`                                        | Public                   | Nested comment tree                 |
-| `createComment(createCommentInput)`                       | Authenticated            | New comment or reply                |
-| `deleteComment(id)`                                       | Authenticated author     | Soft-deleted comment                |
-| `feed(sort, range, communitySlug, cursor, offset, limit)` | Public                   | Post page                           |
-| `votePost(voteInput)`                                     | Authenticated            | Target ID, updated score, own vote  |
-| `voteComment(voteInput)`                                  | Authenticated            | Target ID, updated score, own vote  |
-| `myPostVotes(postIds)`                                    | Authenticated            | Caller's stored post votes          |
-| `myCommentVotes(commentIds)`                              | Authenticated            | Caller's stored comment votes       |
+| Operation                                                 | Access                   | Result                                   |
+| --------------------------------------------------------- | ------------------------ | ---------------------------------------- |
+| `health`                                                  | Public                   | `"ok"`                                   |
+| `community(slug)`                                         | Public                   | One community, or a not-found error      |
+| `communities(cursor, limit)`                              | Public                   | `items`, `nextCursor`, `hasMore`         |
+| `createCommunity(createCommunityInput)`                   | Authenticated            | Community with an owner membership       |
+| `joinCommunity(slug)`                                     | Authenticated            | Community after joining                  |
+| `leaveCommunity(slug)`                                    | Authenticated, non-owner | Community after leaving                  |
+| `post(id)`                                                | Public                   | One post, or a not-found error           |
+| `postsByAuthor(authorId, cursor, limit)`                  | Public                   | Live posts, `nextCursor`, `hasMore`      |
+| `createPost(createPostInput)`                             | Authenticated member     | Text or link post                        |
+| `deletePost(id)`                                          | Authenticated author     | Soft-deleted post                        |
+| `comments(postId, parentId, cursor, limit)`               | Public                   | Direct siblings, `nextCursor`, `hasMore` |
+| `createComment(createCommentInput)`                       | Authenticated            | New comment or reply                     |
+| `deleteComment(id)`                                       | Authenticated author     | Soft-deleted comment                     |
+| `feed(sort, range, communitySlug, cursor, offset, limit)` | Public                   | Post page                                |
+| `votePost(voteInput)`                                     | Authenticated            | Target ID, updated score, own vote       |
+| `voteComment(voteInput)`                                  | Authenticated            | Target ID, updated score, own vote       |
+| `myPostVotes(postIds)`                                    | Authenticated            | Caller's stored post votes               |
+| `myCommentVotes(commentIds)`                              | Authenticated            | Caller's stored comment votes            |
 
 Creation accepts a lowercase slug of 3-24 letters, digits, or underscores, a
 name of 3-60 characters, and an optional description up to 500 characters.
@@ -83,19 +83,101 @@ Creating a comment and incrementing `commentCount` happen in one transaction.
 The transaction rechecks and locks the live post before insertion, so a
 concurrent post deletion cannot accept a comment after deletion.
 
-Threads include deleted comments so their replies remain reachable. Siblings
-sort by score descending, creation time ascending, then ID ascending. Clients
-select how many levels of `replies` to request; this endpoint fetches all rows
-for a post and does not paginate. A post with no comments, including an unknown
-post ID, returns an empty tree.
+### Bounded comment retrieval
+
+`comments` returns a `CommentPage` with `items`, `nextCursor`, and `hasMore`.
+Omit `parentId` (or pass null) for root comments. Supply a comment ID to page
+only its direct replies. The default limit is 25; supported limits are 1-100.
+Every page fetches at most `limit + 1` sibling rows, with one lookahead row
+used for `hasMore`. Descendants are not loaded recursively or counted.
+
+Each comment exposes `hasReplies`, computed with a parameterized SQL
+`EXISTS` probe for visible rows only. It includes soft-deleted replies, and
+does not fetch their bodies. Expand a comment by querying the same post with
+that comment as `parentId`; each sibling group has its own cursor.
+Clients can assemble an arbitrarily deep discussion incrementally, but no
+single comment query returns an unbounded tree.
+
+Siblings still sort by score descending, creation time ascending, then ID
+ascending. The cursor is the last visible row's ID and is exclusive. A
+supplied cursor must exist in the same post and sibling group; invalid,
+cross-post, or cross-parent cursors produce a `400`-shaped error. A supplied
+parent must exist on the post, even when soft-deleted; invalid parents also
+produce `400`. Empty IDs and IDs longer than 128 characters are rejected.
+A root query for a post without comments, including an unknown post ID,
+returns `{ items: [], nextCursor: null, hasMore: false }`.
+
+Pages are live, not a snapshot. Votes between requests can move siblings
+across the cursor and cause skips or repeats. `hasReplies` is also a current
+availability hint; re-query after creating a reply. The limits apply per
+`comments` field, not to the total number of aliases/operations in a GraphQL
+request. Request complexity limits and traffic controls remain separate
+deployment concerns. Page limits bound materialized/returned rows, not a
+hard PostgreSQL execution-time budget; the planner still chooses how to use
+the supporting indexes.
+
+```graphql
+query Roots($postId: String!, $cursor: String) {
+  comments(postId: $postId, cursor: $cursor, limit: 25) {
+    items {
+      id
+      parentId
+      authorUsername
+      body
+      score
+      hasReplies
+    }
+    nextCursor
+    hasMore
+  }
+}
+```
+
+```graphql
+query Replies($postId: String!, $parentId: String!, $cursor: String) {
+  comments(postId: $postId, parentId: $parentId, cursor: $cursor, limit: 25) {
+    items {
+      id
+      parentId
+      authorUsername
+      body
+      score
+      hasReplies
+    }
+    nextCursor
+    hasMore
+  }
+}
+```
+
+**Breaking change:** `comments` previously returned `[Comment!]!` and
+`Comment.replies` was recursive. It now returns `CommentPage!`, and
+`Comment.replies` is removed from all query/mutation payloads. Select fields
+under `items`, replace `replies` selections with `hasReplies`, and load reply
+pages explicitly. Regenerate client schema types/fragments. The obsolete
+whole-tree builder and its tests were replaced by page/DTO/E2E coverage.
+
+The additive `20261004193844_paginate_comment_siblings` migration creates
+an index on `(postId, parentId, score DESC, createdAt, id)` for sibling
+filtering/order and reply availability checks. Apply it before running this
+branch's E2E suite:
+
+```bash
+npx nx run social:deploy-prisma
+```
+
+The migration does not delete comments or change the auth database/gRPC
+contract. Root/reply reads continue to include deleted comments so their
+descendants remain reachable.
 
 Only authors may delete their own posts or comments. Post deletion sets
 `deletedAt` and clears `body`/`url`; its title and existing thread remain readable
 through `post(id)`, but author listings exclude it and new comments are rejected.
 Comment deletion replaces its body with `[deleted]` and sets `deletedAt` without
 removing descendants. `commentCount` counts all stored comments, including
-soft-deleted ones, and is not decremented on deletion. Mutation comment payloads
-return an empty `replies` array; query `comments(postId)` to read descendants.
+soft-deleted ones, and is not decremented on deletion. New-comment payloads
+have `hasReplies: false`; delete payloads report existing reply availability.
+Use `comments(postId, parentId)` to read descendants one level at a time.
 
 ## Voting
 
@@ -229,14 +311,14 @@ Unit tests cover creation, conflicts, missing communities, ownership,
 membership counters, module wiring, pagination, resolver forwarding, and DTO
 validation. They use a mocked Prisma client and do not require Postgres.
 Posts and comments specs also cover module exports, membership/ownership,
-text-versus-link input, cursor pagination, reply trees, invalid parents,
+text-versus-link input, bounded sibling pagination, invalid parents/cursors,
 soft deletion, and a post deleted between the initial lookup and transaction.
 Resolver specs mock services and guards to check authenticated argument forwarding;
 they do not prove the real authentication path.
 E2E tests cover the real cookie-to-gRPC authentication handoff, public reads,
 rejected anonymous and forged-cookie mutations, duplicate slugs, input
 validation, pagination, and repeated and concurrent joins/leaves.
-They also exercise post/comment permissions, author pagination, nested replies,
+They also exercise post/comment permissions, author pagination, paginated replies,
 deletion behavior, concurrent comment counters, and concurrent post deletion.
 Feed and vote specs cover score deltas, target locking, private lookup forwarding,
 input bounds, SQL parameters, sorting, time windows, and both pagination modes.
@@ -244,6 +326,12 @@ E2E also exercises vote retries, flips, removal, concurrent mixed changes,
 missing targets, private lookup isolation, and public feed scoping/pagination.
 All social E2E feature suites share `src/support/gql.ts` for registration,
 login cookies, and GraphQL requests.
+
+[`comment-pagination.spec.ts`](../apps/backend/social-e2e/src/social/comment-pagination.spec.ts)
+adds 105-root pagination, independent reply pages, score ordering, empty leaf
+pages, DTO bounds, cursor/parent isolation, soft-deleted parent reachability,
+a 40-level thread traversed one page at a time, and schema checks that remove
+the recursive field.
 
 Use `npx nx run social:migrate-prisma --name <migration>` to create a future
 migration in development. Use `social:deploy-prisma` to apply committed

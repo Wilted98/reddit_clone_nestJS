@@ -24,9 +24,18 @@ export class Comment extends AbstractModel {
   @Field({ nullable: true })
   deletedAt?: Date;
 
-  /**
-   * Populated by buildTree(); clients select the reply depth they render.
-   */
+  @Field()
+  hasReplies!: boolean;
+}
+
+@ObjectType()
+export class CommentPage {
   @Field(() => [Comment])
-  replies!: Comment[];
+  items!: Comment[];
+
+  @Field(() => String, { nullable: true })
+  nextCursor!: string | null;
+
+  @Field()
+  hasMore!: boolean;
 }

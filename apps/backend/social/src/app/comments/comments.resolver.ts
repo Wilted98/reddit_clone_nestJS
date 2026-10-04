@@ -3,8 +3,9 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentUser, GqlAuthGuard } from '@roorin/nestjs';
 import { User } from '@roorin/proto';
 import { CommentsService } from './comments.service';
+import { CommentsArgs } from './dto/comments.args';
 import { CreateCommentInput } from './dto/create-comment.input';
-import { Comment } from './models/comment.model';
+import { Comment, CommentPage } from './models/comment.model';
 
 @Resolver(() => Comment)
 export class CommentsResolver {
@@ -19,9 +20,9 @@ export class CommentsResolver {
     return this.commentsService.createComment(input, user);
   }
 
-  @Query(() => [Comment], { name: 'comments' })
-  async getComments(@Args('postId') postId: string) {
-    return this.commentsService.getCommentTree(postId);
+  @Query(() => CommentPage, { name: 'comments' })
+  async getComments(@Args() args: CommentsArgs) {
+    return this.commentsService.getComments(args);
   }
 
   @UseGuards(GqlAuthGuard)

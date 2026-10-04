@@ -26,11 +26,25 @@ own email. Regenerate client schema types; account operations now return
 `Account` instead. Public `User` and private `Account` are distinct GraphQL
 object types. No Prisma migration or internal gRPC contract change is needed.
 
+## Batch 2: implemented
+
+Branch: `feat/social-bounded-comments-tests-and-docs`.
+
+**Bounded comment retrieval** is a single-feature batch. `comments` now pages
+roots or one parent's direct replies (25 by default, 1-100 supported).
+`hasReplies` uses indexed existence checks; recursive `Comment.replies` and
+whole-post tree loading are removed. Cursors are checked against the same
+post and parent. Deleted parents and their descendants remain reachable.
+
+This is a breaking GraphQL change and requires the additive sibling-index
+migration. See [the social guide](09-social-service.md#bounded-comment-retrieval)
+for client updates, examples, migration commands, and live-ranking caveats.
+Unit and real-database E2E coverage include wide and deep threads.
+
 ## Next batches
 
 | Batch          | Features                                | Completion boundary                                                                                                                                                                                          |
 | -------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2              | Bounded comment retrieval               | Bound query size and reply loading, define pagination/truncation behavior, and test large/deep threads before public deployment.                                                                             |
 | 3              | Profile activity + post/comment editing | Reuse public profile lookup and existing author-post pagination, add bounded author-comment history, and support author-only edits with an edit timestamp. A frontend profile page remains separate UI work. |
 | 4              | Membership context + community settings | Expose the caller's membership/role and owner-authorized settings updates; preserve stable community identity and document slug behavior.                                                                    |
 | 5, when needed | Basic moderation + search               | Add reports/removal/role checks appropriate to the MVP and bounded search for communities/posts; avoid an elaborate moderation platform.                                                                     |
@@ -42,8 +56,8 @@ Do not bundle it into profile editing.
 
 ## Before public use
 
-- Complete bounded comment retrieval; current discussion-tree reads are not
-  a safe limit on large/deep threads.
+- Comment pages are bounded per field. Consider request complexity/alias
+  limits and traffic controls for the actual public deployment.
 - Configure trusted proxy handling for the actual deployment. Use a shared
   rate-limit store or edge enforcement for multiple auth instances.
 - Review dependency advisories and verify production cookie/error settings.
