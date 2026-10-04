@@ -2,7 +2,8 @@
 
 Nx monorepo with two NestJS backends: `auth` owns users, JWT sessions, and
 internal gRPC authentication; `social` owns communities, memberships, posts,
-paginated comment threads, voting, and HOT/NEW/TOP feeds. Each service has its own
+paginated comment threads, profile activity, author-only content editing,
+voting, and HOT/NEW/TOP feeds. Each service has its own
 PostgreSQL database and Prisma client. The frontend and moderation workflows
 are not implemented yet.
 
@@ -95,3 +96,14 @@ for the next one-or-two-feature batches.
 a whole tree. Use `parentId` to load direct replies and `hasReplies` to
 identify expandable comments. The recursive `replies` field is removed;
 see [the comment API migration notes](docs/09-social-service.md#bounded-comment-retrieval).
+
+Profiles now have bounded `postsByAuthor` and `commentsByAuthor` activity.
+`updatePost` and `updateComment` edit only the caller's own live content;
+nullable `editedAt` tracks edits independently of votes and counters. Apply
+the new social migration before serving/testing this branch. See
+[the editing contract](docs/09-social-service.md#content-editing).
+
+The core discussion API is ready to begin frontend development, not a claim
+that every backend or public-deployment task is finished. Start with
+[the frontend handoff](docs/11-frontend-handoff.md); membership context/settings,
+moderation/search, and password recovery remain on the roadmap.

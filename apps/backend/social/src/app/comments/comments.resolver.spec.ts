@@ -10,6 +10,8 @@ describe('CommentsResolver', () => {
     createComment: jest.Mock;
     getComments: jest.Mock;
     deleteComment: jest.Mock;
+    listByAuthor: jest.Mock;
+    updateComment: jest.Mock;
   };
   const user = {
     id: 'user-1',
@@ -23,6 +25,8 @@ describe('CommentsResolver', () => {
       createComment: jest.fn(),
       getComments: jest.fn(),
       deleteComment: jest.fn(),
+      listByAuthor: jest.fn(),
+      updateComment: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,5 +73,21 @@ describe('CommentsResolver', () => {
       deleted,
     );
     expect(service.deleteComment).toHaveBeenCalledWith('comment-1', user.id);
+  });
+
+  it('forwards public author activity and pagination arguments', async () => {
+    const args = { authorId: 'author-1', cursor: 'last', limit: 10 };
+    const page = { items: [], nextCursor: null, hasMore: false };
+    service.listByAuthor.mockResolvedValue(page);
+    await expect(resolver.listByAuthor(args)).resolves.toBe(page);
+    expect(service.listByAuthor).toHaveBeenCalledWith(args);
+  });
+
+  it('edits with the authenticated author ID', async () => {
+    const input = { id: 'comment-1', body: 'Edited comment' };
+    const updated = { id: 'comment-1', editedAt: new Date() };
+    service.updateComment.mockResolvedValue(updated);
+    await expect(resolver.updateComment(input, user)).resolves.toBe(updated);
+    expect(service.updateComment).toHaveBeenCalledWith(input, user.id);
   });
 });

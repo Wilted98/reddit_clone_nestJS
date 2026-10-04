@@ -11,9 +11,11 @@ import {
 } from '@prisma-clients/roorin-social';
 import { cursorArgs, toPage } from '@roorin/nestjs';
 import { PostsService } from '../posts/posts.service';
+import { AuthorActivityArgs } from '../posts/dto/author-activity.args';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommentsArgs } from './dto/comments.args';
 import { CreateCommentInput } from './dto/create-comment.input';
+import { UpdateCommentInput } from './dto/update-comment.input';
 
 @Injectable()
 export class CommentsService {
@@ -106,6 +108,60 @@ export class CommentsService {
       where: { id },
       data: { deletedAt: new Date(), body: '[deleted]' },
     });
+    return (await this.withReplyAvailability([updated]))[0];
+  }
+
+  async listByAuthor({ authorId, cursor, limit }: AuthorActivityArgs) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new BadRequestException('Comment limit must be between 1 and 100.');
+    }
+    let anchor: { id: string; createdAt: Date } | undefined;
+    if (cursor != null) {
+      const row = await this.prismaService.client.comment.findUnique({
+        where: { id: cursor },
+        select: { id: true, authorId: true, createdAt: true },
+      });
+      if (!row || row.authorId !== authorId) {
+        throw new BadRequestException('Cursor is not in this author activity.');
+      }
+      anchor = row;
+    }
+    const rows = await this.prismaService.client.comment.findMany({
+      take: limit + 1,
+      where: {
+        authorId,
+        deletedAt: null,
+        ...(anchor && {
+          OR: [
+            { createdAt: { lt: anchor.createdAt } },
+            { createdAt: anchor.createdAt, id: { gt: anchor.id } },
+          ],
+        }),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+    });
+    const page = toPage(rows, limit);
+    return { ...page, items: await this.withReplyAvailability(page.items) };
+  }
+
+  async updateComment({ id, body }: UpdateCommentInput, userId: string) {
+    const comment = await this.prismaService.client.comment.findUnique({
+      where: { id },
+    });
+    if (!comment) throw new NotFoundException('Comment not found');
+    if (comment.authorId !== userId) {
+      throw new ForbiddenException('You can only edit your own comments.');
+    }
+    if (comment.deletedAt) {
+      throw new BadRequestException('Cannot edit a deleted comment.');
+    }
+    const [updated] =
+      await this.prismaService.client.comment.updateManyAndReturn({
+        where: { id, authorId: userId, deletedAt: null },
+        data: { body, editedAt: new Date() },
+      });
+    if (!updated)
+      throw new BadRequestException('Cannot edit a deleted comment.');
     return (await this.withReplyAvailability([updated]))[0];
   }
 

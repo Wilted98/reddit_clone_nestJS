@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CommentsModule } from './comments.module';
 import { CommentsService } from './comments.service';
 import { CommentsArgs } from './dto/comments.args';
+import { AuthorActivityArgs } from '../posts/dto/author-activity.args';
 
 function databaseMock() {
   const tx = {
@@ -19,6 +20,7 @@ function databaseMock() {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateManyAndReturn: jest.fn(),
     },
   };
   return {
@@ -316,5 +318,175 @@ describe('CommentsService', () => {
       service.deleteComment('missing', author.id),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.client.comment.update).not.toHaveBeenCalled();
+  });
+
+  it.each([null, new Date()])(
+    'pages live author comments after an active or deleted anchor (%j)',
+    async (deletedAt) => {
+      prisma.client.comment.findUnique.mockResolvedValue({
+        ...comment,
+        id: 'previous',
+        deletedAt,
+      });
+      const rows = [
+        comment,
+        { ...comment, id: 'comment-2', parentId: 'parent' },
+        { ...comment, id: 'lookahead' },
+      ];
+      prisma.client.comment.findMany.mockResolvedValue(rows);
+      prisma.client.$queryRaw.mockResolvedValue([{ id: comment.id }]);
+      const args = Object.assign(new AuthorActivityArgs(), {
+        authorId: author.id,
+        cursor: 'previous',
+        limit: 2,
+      });
+      const page = await service.listByAuthor(args);
+      expect(page).toEqual({
+        items: [
+          { ...rows[0], hasReplies: true },
+          { ...rows[1], hasReplies: false },
+        ],
+        nextCursor: 'comment-2',
+        hasMore: true,
+      });
+      expect(prisma.client.comment.findMany).toHaveBeenCalledWith({
+        take: 3,
+        where: {
+          authorId: author.id,
+          deletedAt: null,
+          OR: [
+            { createdAt: { lt: comment.createdAt } },
+            { createdAt: comment.createdAt, id: { gt: 'previous' } },
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      });
+      expect(prisma.client.$queryRaw.mock.calls[0][0].values).toEqual([
+        comment.id,
+        'comment-2',
+      ]);
+    },
+  );
+
+  it('returns an empty terminal author page without probing replies', async () => {
+    prisma.client.comment.findMany.mockResolvedValue([]);
+    await expect(
+      service.listByAuthor(
+        Object.assign(new AuthorActivityArgs(), { authorId: 'unknown-author' }),
+      ),
+    ).resolves.toEqual({ items: [], nextCursor: null, hasMore: false });
+    expect(prisma.client.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it.each([null, { authorId: 'other-author' }])(
+    'rejects missing or foreign comment activity cursors',
+    async (row) => {
+      prisma.client.comment.findUnique.mockResolvedValue(row);
+      await expect(
+        service.listByAuthor(
+          Object.assign(new AuthorActivityArgs(), {
+            authorId: author.id,
+            cursor: 'invalid',
+          }),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.client.comment.findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([0, 101, 1.5, NaN])(
+    'bounds direct author-comment calls with limit %j',
+    async (limit) => {
+      await expect(
+        service.listByAuthor(
+          Object.assign(new AuthorActivityArgs(), {
+            authorId: author.id,
+            limit,
+          }),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.client.comment.findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it('atomically edits only body/editedAt and preserves descendants and counters', async () => {
+    const updated = {
+      ...comment,
+      body: 'Edited comment',
+      editedAt: new Date(),
+    };
+    prisma.client.comment.updateManyAndReturn.mockResolvedValue([updated]);
+    prisma.client.$queryRaw.mockResolvedValue([{ id: comment.id }]);
+    await expect(
+      service.updateComment({ id: comment.id, body: updated.body }, author.id),
+    ).resolves.toEqual({ ...updated, hasReplies: true });
+    expect(prisma.client.comment.updateManyAndReturn).toHaveBeenCalledWith({
+      where: { id: comment.id, authorId: author.id, deletedAt: null },
+      data: { body: updated.body, editedAt: expect.any(Date) },
+    });
+    expect(prisma.tx.post.updateMany).not.toHaveBeenCalled();
+    expect(posts.getPost).not.toHaveBeenCalled();
+  });
+
+  it("forbids editing another author's comment", async () => {
+    await expect(
+      service.updateComment({ id: comment.id, body: 'Edited' }, 'outsider'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.client.comment.updateManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it('reports missing comment edit targets', async () => {
+    prisma.client.comment.findUnique.mockResolvedValue(null);
+    await expect(
+      service.updateComment({ id: 'missing', body: 'Edited' }, author.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects already deleted comments', async () => {
+    prisma.client.comment.findUnique.mockResolvedValue({
+      ...comment,
+      deletedAt: new Date(),
+      body: '[deleted]',
+    });
+    await expect(
+      service.updateComment({ id: comment.id, body: 'Edited' }, author.id),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.client.comment.updateManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it('rejects a comment deleted between lookup and the conditional write', async () => {
+    prisma.client.comment.updateManyAndReturn.mockResolvedValue([]);
+    await expect(
+      service.updateComment({ id: comment.id, body: 'Edited' }, author.id),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.client.comment.update).not.toHaveBeenCalled();
+  });
+
+  it('ignores forged author/location/counters in a direct edit call', async () => {
+    prisma.client.comment.updateManyAndReturn.mockResolvedValue([
+      { ...comment, editedAt: new Date() },
+    ]);
+    await service.updateComment(
+      {
+        id: comment.id,
+        body: 'Edited',
+        authorId: 'victim',
+        parentId: 'other',
+        postId: 'other',
+        score: 99,
+      } as unknown as Parameters<CommentsService['updateComment']>[0],
+      author.id,
+    );
+    expect(
+      prisma.client.comment.updateManyAndReturn.mock.calls[0][0].data,
+    ).toEqual({ body: 'Edited', editedAt: expect.any(Date) });
+  });
+
+  it('propagates unexpected comment edit failures', async () => {
+    const error = new Error('Database unavailable');
+    prisma.client.comment.updateManyAndReturn.mockRejectedValue(error);
+    await expect(
+      service.updateComment({ id: comment.id, body: 'Edited' }, author.id),
+    ).rejects.toBe(error);
   });
 });
