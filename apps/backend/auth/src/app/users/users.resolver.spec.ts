@@ -4,6 +4,7 @@ import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UsersResolver } from './users.resolver';
 import { UsersService } from './users.service';
+import { GqlThrottlerGuard } from '../rate-limit/gql-throttler.guard';
 
 /**
  * The resolver has no branching of its own - it is purely a GraphQL-shaped
@@ -16,6 +17,7 @@ describe('UsersResolver', () => {
   let usersService: {
     createUser: jest.Mock;
     getUser: jest.Mock;
+    getPublicUser: jest.Mock;
     updateUser: jest.Mock;
   };
 
@@ -23,6 +25,7 @@ describe('UsersResolver', () => {
     usersService = {
       createUser: jest.fn(),
       getUser: jest.fn(),
+      getPublicUser: jest.fn(),
       updateUser: jest.fn(),
     };
 
@@ -31,7 +34,10 @@ describe('UsersResolver', () => {
         UsersResolver,
         { provide: UsersService, useValue: usersService },
       ],
-    }).compile();
+    })
+      .overrideGuard(GqlThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     resolver = module.get(UsersResolver);
   });
@@ -56,11 +62,12 @@ describe('UsersResolver', () => {
   describe('getUser', () => {
     it('looks the user up by username, not by passing the raw resolver args through', async () => {
       const found = { id: '1', username: 'vasi' };
-      usersService.getUser.mockResolvedValue(found);
+      usersService.getPublicUser.mockResolvedValue(found);
 
       const result = await resolver.getUser('vasi');
 
-      expect(usersService.getUser).toHaveBeenCalledWith({ username: 'vasi' });
+      expect(usersService.getPublicUser).toHaveBeenCalledWith('vasi');
+      expect(usersService.getUser).not.toHaveBeenCalled();
       expect(result).toBe(found);
     });
   });

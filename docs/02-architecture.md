@@ -131,6 +131,9 @@ apps/backend/auth/src/app/
 │   ├── auth.resolver.ts   login/logout GraphQL mutations
 │   ├── auth.service.ts    password verification, JWT signing/cookie
 │   └── auth.controller.ts the gRPC Authenticate handler
+├── rate-limit/       infrastructure module: shared login/registration budgets
+│   ├── rate-limit.module.ts
+│   └── gql-throttler.guard.ts
 ├── prisma/           infrastructure module: the database connection
 │   ├── prisma.module.ts
 │   └── prisma.service.ts
@@ -150,7 +153,12 @@ either merge `auth`+`users` into one service (likely, since they're this
 entangled) or introduce the same gRPC indirection between them that a real
 social service already uses.
 
-`users.module.ts` imports `PrismaModule` and exports `UsersService` — so
+Both feature modules import `RateLimitModule` for the same named budget
+configuration and storage. `User` is the public GraphQL profile; the distinct
+`Account` object adds private email for new/own-account responses. Neither
+change alters social's internal gRPC authentication contract.
+
+`users.module.ts` imports `PrismaModule` and `RateLimitModule` and exports `UsersService` — so
 anything that needs "look up a user" imports `UsersModule`, not
 `PrismaService` directly. This is the seam a future service split would cut
 along: `users/` is a candidate to become its own thing (or stay), independent

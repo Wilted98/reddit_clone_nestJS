@@ -24,6 +24,33 @@ would make every edge case slow and DB-dependent to verify.
 
 ## Unit tests
 
+### Profile privacy and authentication rate limits
+
+- [`users.service.spec.ts`](../apps/backend/auth/src/app/users/users.service.spec.ts)
+  verifies public lookups select only public fields. Resolver specs verify
+  that `user` takes the public path while `me` remains caller-scoped.
+- [`rate-limit.module.spec.ts`](../apps/backend/auth/src/app/rate-limit/rate-limit.module.spec.ts)
+  uses the real module, guard, and storage with fake timers. It covers
+  independent IP/operation budgets, concurrent attempts, block recovery,
+  per-client expiry isolation, idle-record cleanup, defaults, and invalid
+  startup configuration.
+- [`auth-api.spec.ts`](../apps/backend/auth/src/app/rate-limit/auth-api.spec.ts)
+  is HTTP integration coverage: the real app, schema, guards, JWT cookies,
+  and validation pipe, with only persistence mocked. Low budgets verify
+  structured `429` errors and `Retry-After`, alias accounting, spoofed
+  forwarding headers, rejection before database writes, and public/private
+  schema access including aliases and fragments.
+- [`profile-privacy.spec.ts`](../apps/backend/auth-e2e/src/users/profile-privacy.spec.ts)
+  verifies the contract against real Postgres for anonymous and signed-in
+  callers, and proves each account sees only its own private fields.
+
+Functional E2E runs start `auth:serve-e2e` instead of ordinary `auth:serve`.
+That target raises both auth budgets to 1000 for fixture setup; it does not
+disable throttling. Normal development/production limits are unchanged.
+When running functional E2E manually against an existing server, use a
+dedicated test instance with sufficient fixture budgets. Never deploy that
+test target. Low-limit integration tests still run with `nx test auth`.
+
 ### Social specs and E2E ownership
 
 Keeping colocated `*.service.spec.ts` and `*.resolver.spec.ts` alongside
@@ -57,7 +84,8 @@ Mocks `PrismaService` entirely — the test never touches a real database.
 Covers `createUser` (hashes before persisting, translates `P2002` into a
 `ConflictException` naming the field(s), rethrows anything else unchanged),
 `getUser` (passes the `where` clause through unchanged, translates `P2025`
-into a `NotFoundException`), and `updateUser` (updates only the given user
+into a `NotFoundException`), `getPublicUser` (selects only public profile
+columns and maps missing users), and `updateUser` (updates only the given user
 with the given fields — and its **not-found path is deliberately left
 uncaught**, documented in a comment: it's the same shape bug `getUser` used
 to have, not fixed here, tracked in
@@ -153,7 +181,7 @@ npx nx test auth
 
 ## End-to-end tests
 
-Both spec files share [`support/gql.ts`](../apps/backend/auth-e2e/src/support/gql.ts) —
+The auth spec files share [`support/gql.ts`](../apps/backend/auth-e2e/src/support/gql.ts) —
 a small `axios`-based GraphQL client (with `validateStatus` disabled so 4xx
 responses resolve normally instead of throwing) plus `registerAndLogin()`,
 which handles the register → login → capture-cookie sequence every
@@ -179,10 +207,10 @@ documenting — not just asserting away — that it does **not** revoke the
 underlying token server-side (replaying the exact old cookie value still
 authenticates, since there is no revocation store).
 
-Every claim in both files about response shapes was checked against a real
+Every claim in these files about response shapes was checked against a real
 running instance while writing it, not inferred from reading the source.
 
-Run both:
+Run the auth suites (deploy the database migrations first, as in the root README):
 
 ```bash
 docker compose up -d postgres
@@ -209,5 +237,5 @@ A second issue in the same scaffold was fixed alongside it:
 `global-teardown.ts` called `killPort(3000)` unconditionally, which would
 kill _any_ process on that port, including an unrelated dev server you
 happened to already have running — replaced with a no-op, since NX already
-owns the lifecycle of the `auth:serve` task this target depends on and stops
+owns the lifecycle of the auth server task this target depends on and stops
 it itself.

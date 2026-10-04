@@ -6,10 +6,13 @@ database. The auth service can:
 - Register a user (`createUser` mutation) — validates the input shape,
   hashes the password, persists a row.
 - Look a user up by username (`user` query) — returns the public profile
-  fields.
+  fields on `User`, never email. New/own-account operations return a distinct
+  `Account` type with the caller's email.
 - Log in (`login` mutation) — verifies the password, sets an httpOnly JWT
   cookie.
 - Log out (`logout` mutation) — clears the cookie.
+- Rate-limit login and registration independently per client IP, with
+  configurable budgets and an in-memory store per auth process.
 - Return the authenticated caller's own profile (`me` query) and update it
   (`updateUser` mutation) — both guarded, both scoped to the token's own
   user id, never a client-supplied one.
@@ -62,6 +65,10 @@ for auth examples and [`09-social-service.md`](09-social-service.md) for social.
 
 ## What's next
 
-Frontend clients and moderation workflows remain future work. Larger feeds
+See [the MVP roadmap](10-mvp-roadmap.md) for small implementation batches.
+Public/private profiles and auth rate limits are implemented; bounded
+comment retrieval, profile activity, post/comment editing, membership context,
+community settings, moderation/search, and password recovery remain planned.
+Frontend clients remain future work. Larger feeds
 will need a materialized HOT ranking: the current offset cap limits pagination
 depth but does not bound the database's computed sort.

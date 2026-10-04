@@ -37,6 +37,29 @@ export class UsersService {
     }
   }
 
+  async getPublicUser(username: string) {
+    try {
+      return await this.prismaService.client.user.findUniqueOrThrow({
+        where: { username },
+        select: {
+          id: true,
+          createdAt: true,
+          username: true,
+          avatarUrl: true,
+          bio: true,
+        },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2025'
+      ) {
+        throw new NotFoundException('User not found');
+      }
+      throw err;
+    }
+  }
+
   async getUser(args: Prisma.UserWhereUniqueInput) {
     try {
       return await this.prismaService.client.user.findUniqueOrThrow({

@@ -7,7 +7,12 @@
     "e2e": {
       "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/social-e2e"],
-      "dependsOn": ["auth:build", "auth:serve", "social:build", "social:serve"],
+      "dependsOn": [
+        "auth:build",
+        "auth:serve-e2e",
+        "social:build",
+        "social:serve"
+      ],
       "options": {
         "jestConfig": "apps/backend/social-e2e/jest.config.cts",
         "passWithNoTests": false

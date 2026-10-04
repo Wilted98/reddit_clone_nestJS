@@ -2,10 +2,12 @@
 
 ## What exists today
 
-**Registration only. No login, no sessions, no tokens.** `createUser`
+Registration, login/logout, JWT cookies, private account queries, public
+profiles, internal gRPC authentication, and login/registration rate limiting
+are implemented. `createUser`
 (in [`users.service.ts`](../apps/backend/auth/src/app/users/users.service.ts))
-does exactly one security-relevant thing: it hashes the password before
-persisting it.
+hashes the password before persisting it; resolver guards and global DTO
+validation protect the request path.
 
 ```ts
 return this.prismaService.client.user.create({
@@ -24,14 +26,18 @@ return this.prismaService.client.user.create({
   Higher is more expensive to brute-force but slower per login — worth
   revisiting once there's a production server to benchmark it against.
 - **The raw password is never stored, logged, or returned.** The GraphQL
-  `User` type ([`user.model.ts`](../apps/backend/auth/src/app/users/models/user.model.ts))
-  simply has no `password` field — see
+  public `User` type ([`user.model.ts`](../apps/backend/auth/src/app/users/models/user.model.ts))
+  and private `Account` type ([`account.model.ts`](../apps/backend/auth/src/app/users/models/account.model.ts))
+  have no `password` field — see
   [`07-graphql-api-reference.md`](07-graphql-api-reference.md) for why that's
   a stronger guarantee than "the resolver doesn't return it."
 
-That's the entire current surface. There is no `login` mutation, no JWT
-issued, nothing checks a password against its hash anywhere in this codebase
-yet.
+Public `user(username)` responses never expose email: `getPublicUser` selects
+only public profile columns from Prisma. Email belongs to `Account`, returned
+only by `createUser`, successful `login`, `me`, and `updateUser` for the new
+or authenticated caller's own account. Requesting email, an aliased email,
+or an `Account` fragment from a public profile fails schema validation.
+This is a breaking GraphQL contract change, not a database or gRPC migration.
 
 ## Login, logout, me, updateUser
 
@@ -57,17 +63,17 @@ response.cookie('Authentication', accessToken, {
   deployment must actually set `NODE_ENV=production` for this to take effect,
   same caveat as the stack-trace note below.
 - A wrong password and an unknown email produce the **exact same message**
-  (`"Credentials are not valid."`) — verified by comparing both directly, not
-  just individually — so `login` cannot be used to enumerate which emails are
-  registered.
+  (`"Credentials are not valid."`), verified by comparing both directly, not
+  just individually. This avoids revealing whether an email exists through
+  the error message; it is not a guarantee against timing-based enumeration.
 
 `me` and `updateUser`
 ([`users.resolver.ts`](../apps/backend/auth/src/app/users/users.resolver.ts))
 are guarded with `@UseGuards(GqlAuthGuard)` and read the caller's id from
 `@CurrentUser()`, never from a client-supplied argument — there is no field
 on either operation a client could set to act as a different user. The gRPC
-face (`AuthController.authenticate`, called by _other_ services once one
-exists — see [`02-architecture.md`](02-architecture.md)) is guarded the same
+face (`AuthController.authenticate`, called by social — see
+[`02-architecture.md`](02-architecture.md)) is guarded the same
 way, just with `JwtAuthGuard` instead of the GraphQL-context variant.
 
 **Verified live**, the full round trip: register → login (cookie set) → `me`
@@ -85,19 +91,62 @@ token some other way first) stays valid until it expires, logout or not.
 Fine for now with zero real users; worth a revocation store the moment that
 stops being true.
 
-**Once a second service exists**, it never verifies the JWT itself — it
+**Social does not verify the JWT itself** — it
 calls `auth`'s gRPC `Authenticate` endpoint to ask "whose token is this?"
-using the `GqlAuthGuard` already sitting in `libs/backend/nestjs`, ready and
-unused until then. Only `auth` ever holds `JWT_SECRET`. See
-[`02-architecture.md`](02-architecture.md) for exactly what's built versus
-what a second service still has to wire up.
+using the shared `GqlAuthGuard` in `libs/backend/nestjs`. Only `auth` holds
+`JWT_SECRET`. See [`02-architecture.md`](02-architecture.md) for the handoff.
+
+## Login and registration rate limiting
+
+[`RateLimitModule`](../apps/backend/auth/src/app/rate-limit/rate-limit.module.ts)
+configures separate named budgets, enforced only on `login` and `createUser`
+by a [GraphQL-aware throttler guard](../apps/backend/auth/src/app/rate-limit/gql-throttler.guard.ts).
+The context adapter follows [Nest's GraphQL guard pattern](https://docs.nestjs.com/security/rate-limiting#graphql).
+
+| Auth environment variable  | Default | Meaning                                            |
+| -------------------------- | ------- | -------------------------------------------------- |
+| `AUTH_RATE_LIMIT_TTL_MS`   | `60000` | Request lifetime and block duration, milliseconds  |
+| `AUTH_LOGIN_RATE_LIMIT`    | `10`    | Login attempts per client IP within the TTL        |
+| `AUTH_REGISTER_RATE_LIMIT` | `5`     | Registration attempts per client IP within the TTL |
+
+Values must be positive integers no greater than `2147483647`; invalid
+configuration fails startup. Guards run before DTO validation and service
+calls, so bad credentials, invalid DTOs, and aliased mutation fields each
+consume an attempt. GraphQL syntax/schema validation failures do not reach
+the guard. A registration block does not block login or public reads.
+
+Exceeding a budget rejects the operation with
+`extensions.originalError.statusCode: 429` and a standard `Retry-After`
+response header in seconds. HTTP remains `200` for this GraphQL execution
+error; do not rely on the transport status alone. Named `X-RateLimit-*`
+headers use the `login` or `register` suffix.
+
+The tracker uses Express `req.ip`, not an unchecked `X-Forwarded-For` header.
+There is no `trust proxy` configuration today. When deploying behind a
+reverse proxy, configure only the trusted proxy addresses/hops so real
+clients do not share the proxy's single budget and cannot spoof their IP.
+Do not enable blanket proxy trust. The throttler normalizes IPv4-mapped
+addresses and groups IPv6 clients by `/64`.
+
+Storage is **in memory, per auth process**. Counters reset on restart;
+multiple replicas have independent budgets. A shared store or an edge
+limiter is needed before relying on these limits across replicas.
+`@nestjs/throttler` was updated to `6.7.1`, whose
+[upstream storage](https://github.com/nestjs/throttler/blob/v6.7.1/src/throttler.service.ts)
+keeps client expiry timers independent and evicts idle records. Regression
+tests cover both behaviors.
+
+Functional E2E targets start `auth:serve-e2e`, which raises both budgets to
+`1000` only for fixture creation. It does not disable the guard or change
+normal `nx serve auth` limits. Never deploy this test target. Low-budget
+HTTP integration tests exercise the real guard separately.
 
 ## Bugs found while testing (fixed)
 
-Three bugs were found in code that existed at the time, while writing the
+Four bugs were found in code that existed at the time, while writing the
 test suite in [`08-testing-strategy.md`](08-testing-strategy.md), and
 confirmed by actually running the server rather than just reading the code.
-**All three have since been fixed** — kept here, rather than deleted, because
+**All four have since been fixed** — kept here, rather than deleted, because
 the _shape_ of each bug (an unawaited promise defeating a `try/catch`; a
 non-nullable GraphQL field nulling the whole response on error; a validation
 pipe that was never wired up) is exactly the kind of mistake that's cheap to
@@ -267,3 +316,13 @@ the full login/me/updateUser/logout flow against a real running server and
 real Postgres. See [`08-testing-strategy.md`](08-testing-strategy.md) for how
 to run all of it, including how `nx e2e` itself was fixed in the same pass —
 it could not run at all before this.
+
+Privacy and throttling: [`rate-limit.module.spec.ts`](../apps/backend/auth/src/app/rate-limit/rate-limit.module.spec.ts)
+checks configuration, independent/concurrent budgets, expiration, and cleanup;
+[`auth-api.spec.ts`](../apps/backend/auth/src/app/rate-limit/auth-api.spec.ts)
+boots the real GraphQL app with mocked persistence and exercises schema
+privacy, JWT cookies, DTO validation, aliases, and spoofed forwarding headers.
+[`profile-privacy.spec.ts`](../apps/backend/auth-e2e/src/users/profile-privacy.spec.ts)
+verifies public/private fields and caller isolation against real Postgres.
+Bounded comment retrieval and password recovery remain separate future
+batches in [the MVP roadmap](10-mvp-roadmap.md).

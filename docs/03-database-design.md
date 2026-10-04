@@ -35,6 +35,11 @@ exist yet — a deliberate, cheap bet: adding a nullable column to an empty
 table is a trivial migration, so paying for it one migration early costs
 nothing. Both are now live via `updateUser`.
 
+The Prisma `User` row remains unchanged by profile privacy. Public GraphQL
+`User` lookups select only public columns; private `Account` responses add
+email for the new/authenticated caller. `Account` is an API type, not a
+second database table. No migration is needed for this split.
+
 ## Why `cuid`, not auto-increment integers
 
 `@default(cuid())` generates a globally unique, non-sequential, sortable
