@@ -1,101 +1,78 @@
 # Roorin
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Nx monorepo with two NestJS backends: `auth` owns users, JWT sessions, and
+internal gRPC authentication; `social` owns communities, memberships, posts,
+and nested comments. Each service has its own PostgreSQL database and Prisma
+client. Voting and feed APIs and the frontend are not implemented yet.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+## Local setup
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/nest?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+Install Node.js 22+, npm, and Docker with Compose. From the repository root:
 
-## Run tasks
-
-To run the dev server for your app, use:
-
-```sh
-npx nx serve roorin
+```bash
+npm ci
+npm run generate-ts-proto
+cp apps/backend/auth/.env.example apps/backend/auth/.env
+cp apps/backend/social/.env.example apps/backend/social/.env
+docker compose up -d postgres
+docker compose ps
 ```
 
-To create a production bundle:
+Set a private `JWT_SECRET` in auth's `.env`. The templates configure auth HTTP
+on port 3000, social HTTP on 3001, and auth gRPC on 5050. Social's
+`AUTH_GRPC_URL` must match auth's `GRPC_URL`; social does not need `JWT_SECRET`.
+Both `.env` files are gitignored. Wait for Postgres to be healthy, then apply
+the committed migrations:
 
-```sh
-npx nx build roorin
+```bash
+cd apps/backend/auth
+npx prisma migrate deploy
+cd ../../..
+npx nx run social:deploy-prisma
 ```
 
-To see all available targets to run for a project, run:
+Docker initializes `roorin_auth` and `roorin_social` on the first startup of
+the volume. If you already have an older volume without the social database,
+create it once before migrating:
 
-```sh
-npx nx show project roorin
+```bash
+docker compose exec postgres createdb -U roorin roorin_social
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+Run each service in a separate terminal:
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/nest:app demo
+```bash
+npx nx serve auth
 ```
 
-To generate a new library, use:
-
-```sh
-npx nx g @nx/node:lib mylib
+```bash
+npx nx serve social
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+GraphQL endpoints are `http://localhost:3000/graphql` (auth) and
+`http://localhost:3001/graphql` (social). Public social queries do not require
+auth to run. Guarded social mutations require auth's gRPC endpoint and the
+`Authentication` cookie returned by login.
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Stop Postgres with `docker compose down`; this preserves its volume.
 
-## Set up CI!
+## Verification
 
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
+```bash
+npx nx run-many -t lint -p auth,social,social-e2e
+npx nx run-many -t test,build -p auth,social
+npx nx e2e auth-e2e
+npx nx e2e social-e2e
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+Unit specs use mocks and do not require Postgres. E2E tests need both databases
+migrated and create unique test records. Nx manages the required service
+processes; `social-e2e` starts both auth and social. Run E2E targets separately
+with the normal development servers stopped to avoid port conflicts.
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Documentation
 
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/nest?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Start with [the documentation index](docs/README.md). See
+[the social service guide](docs/09-social-service.md) for operations, membership
+rules, soft deletion, and test setup, and
+[the testing strategy](docs/08-testing-strategy.md) for test responsibilities.

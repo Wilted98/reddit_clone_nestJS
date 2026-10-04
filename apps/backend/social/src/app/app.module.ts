@@ -7,6 +7,8 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { GqlContext } from '@roorin/nestjs';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AppResolver } from './app.resolver';
+import { PostsModule } from './posts/posts.module';
+import { CommentsModule } from './comments/comments.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { AppResolver } from './app.resolver';
       context: ({ req, res }: GqlContext) => ({ req, res }),
     }),
     CommunitiesModule,
+    PostsModule,
+    CommentsModule,
   ],
   providers: [AppResolver],
 })

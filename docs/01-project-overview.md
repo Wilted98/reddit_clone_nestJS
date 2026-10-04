@@ -1,6 +1,7 @@
 ## What this repository actually contains, right now
 
-One NestJS application, `auth`, backed by one Postgres database. It can:
+Two NestJS applications, `auth` and `social`, each backed by its own Postgres
+database. The auth service can:
 
 - Register a user (`createUser` mutation) — validates the input shape,
   hashes the password, persists a row.
@@ -13,12 +14,16 @@ One NestJS application, `auth`, backed by one Postgres database. It can:
   (`updateUser` mutation) — both guarded, both scoped to the token's own
   user id, never a client-supplied one.
 - Answer an internal gRPC `Authenticate(token) -> User` call — the hook a
-  future second service uses to resolve a cookie without ever holding
+  social service uses to resolve a cookie without ever holding
   `JWT_SECRET` itself.
 
-Still no other services, no communities/posts/social layer. See
-[`07-graphql-api-reference.md`](07-graphql-api-reference.md) for the exact
-schema and [`04-authentication.md`](04-authentication.md) for how the auth
+Social supports community creation/listing, memberships, member-only text/link
+posts, author pagination, nested comments, and author-only soft deletion.
+It authenticates guarded mutations over auth's gRPC endpoint. Vote persistence
+is prepared, but voting and feed APIs and the frontend remain unimplemented.
+See [`09-social-service.md`](09-social-service.md) for social operations,
+[`07-graphql-api-reference.md`](07-graphql-api-reference.md) for auth's
+schema, and [`04-authentication.md`](04-authentication.md) for how the auth
 flow works and its history (including a bug that made every guarded
 operation unreachable until it was found by testing).
 
@@ -28,13 +33,14 @@ operation unreachable until it was found by testing).
 roorin/
 ├── apps/
 │   └── backend/
-│       ├── auth/        the one service that exists — see 02-architecture.md
-│       └── auth-e2e/    black-box tests against a running `auth`
+│       ├── auth/        users, JWT sessions, and gRPC authentication
+│       ├── auth-e2e/    black-box tests against a running `auth`
+│       ├── social/      communities, memberships, posts, and comments
+│       └── social-e2e/  black-box tests against running auth and social
 ├── libs/
 │   └── backend/
 │       ├── nestjs/      shared cross-cutting code (AbstractModel, GqlContext,
-│       │                 init(), and a gRPC-calling GqlAuthGuard for future
-│       │                 services — see 02-architecture.md)
+│       │                 init(), pagination, and social's gRPC GqlAuthGuard)
 │       └── proto/       generated gRPC types from proto/*.proto
 ├── proto/               auth.proto — the gRPC contract, source of truth
 ├── docs/                you are here
@@ -42,33 +48,19 @@ roorin/
 └── docker-compose.yaml  local Postgres
 ```
 
-`apps/frontend/` To be implemented. The GraphQL schema is queryable from
-the Apollo Sandbox at `http://localhost:3000/graphql` the moment the service
-is running, with no client required.
+`apps/frontend/` is to be implemented. GraphQL is available at
+`http://localhost:3000/graphql` for auth and `http://localhost:3001/graphql`
+for social when the respective services are running.
 
 ## Running it
 
-```bash
-docker compose up -d postgres
-```
-
-```bash
-npx nx run auth:migrate-prisma --name init
-```
-
-```bash
-npx nx serve auth
-```
-
-Then open `http://localhost:3000/graphql` — Apollo Sandbox lets you run
-mutations and queries directly, no separate client needed. See
-[`07-graphql-api-reference.md`](07-graphql-api-reference.md) for examples.
+Follow [the root README](../README.md) to install dependencies, configure both
+`.env` files, start Docker, deploy migrations, and serve each app in a separate
+terminal. See [`07-graphql-api-reference.md`](07-graphql-api-reference.md)
+for auth examples and [`09-social-service.md`](09-social-service.md) for social.
 
 ## What's next
 
-The social layer (communities, posts, comments, votes, feed) as a second
-service, using the gRPC `Authenticate` call and the `GqlAuthGuard` already
-sitting in `libs/backend/nestjs` for exactly that purpose. Each doc in this
-folder that touches a not-yet-built piece says so explicitly and links to the
-design doc that specifies it — nothing here pretends the future is already
-built.
+Voting and feed APIs can build on the existing posts, comments, memberships,
+and prepared Vote model. Frontend clients and moderation workflows remain
+future work.

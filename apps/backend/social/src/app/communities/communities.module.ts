@@ -6,5 +6,6 @@ import { CommunitiesResolver } from './communities.resolver';
 @Module({
   imports: [PrismaModule],
   providers: [CommunitiesService, CommunitiesResolver],
+  exports: [CommunitiesService],
 })
 export class CommunitiesModule {}

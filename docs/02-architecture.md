@@ -15,13 +15,15 @@ _how_ the workspace is organized, not _why NX_.
 apps/
 └── backend/
     ├── auth/        the auth service (GraphQL API + gRPC + Postgres)
-    └── auth-e2e/    black-box tests that boot `auth` and hit it over HTTP
+    ├── auth-e2e/    black-box tests that boot `auth` and hit it over HTTP
+    ├── social/      communities, memberships, posts, comments, own Postgres DB
+    └── social-e2e/  HTTP tests against both services and real gRPC auth
 
 libs/
 └── backend/
     ├── nestjs/      @roorin/nestjs — cross-cutting code every backend
     │                  service imports (AbstractModel, GqlContext, init(),
-    │                  and a gRPC-calling GqlAuthGuard for future services)
+    │                  pagination, and social's gRPC-calling GqlAuthGuard)
     └── proto/       @roorin/proto — generated gRPC types from proto/*.proto
 
 proto/               auth.proto — the gRPC contract itself, source of truth
@@ -52,8 +54,8 @@ It exports:
 
 - [`AbstractModel`](../libs/backend/nestjs/src/lib/graphql/abstract.model.ts) —
   the base GraphQL `@ObjectType` every persisted model extends, contributing
-  `id` and `createdAt`. `User` (in `auth`) extends it; every future model in
-  every future service will too.
+  `id` and `createdAt`. Auth's `User` and social's `Community`, `Post`, and
+  `Comment` extend it.
 - [`GqlContext`](../libs/backend/nestjs/src/lib/graphql/gql-context.interface.ts) —
   the `{ req, res }` shape every service's `GraphQLModule.forRoot` context
   factory returns, so resolvers that need to set a cookie (`login`) or read
@@ -62,7 +64,7 @@ It exports:
   (helmet, CORS, the global `ValidationPipe`, cookie parsing). Every service's
   `main.ts` calls this instead of repeating the same five lines.
 - A **gRPC-calling `GqlAuthGuard`** — see "Two guards named the same thing"
-  below. This one is written for a _second_ service to use; `auth` doesn't
+  below. Social uses this guard; `auth` doesn't
   use it itself.
 
 The rule for what belongs in this library: **if it would be identical
@@ -79,44 +81,32 @@ collision is intentional, not an oversight:
   is the one service that actually holds `JWT_SECRET`.
 - `libs/backend/nestjs/src/lib/guards/gql-auth.guards.ts` — resolves a cookie
   by calling `auth`'s gRPC `Authenticate` endpoint instead of verifying
-  anything itself. This is the one every _other_ future service imports —
-  see "Where this is heading" below.
+  anything itself. Social imports this guard for its protected mutations.
 
-Nothing imports the shared one yet, because there is no second service. It
-exists now, ready, because writing it once here means the second service
-never has to write its own copy.
+Social's `AuthModule` registers the gRPC client for `AUTH_PACKAGE_NAME` and
+exports `ClientsModule`, satisfying the shared guard's dependency.
 
-## Why one service today, and what happens when there's a second
+## Authentication across services
 
-`auth` currently does two things a growing system would eventually split:
-owning user identity, and (later) owning credentials/session issuance. That's
-fine _now_, because there's only one service and nothing to split it from.
-The moment a second service (say, a `social` service for posts and
-communities) needs to know "who is this request from?", a real architectural
-decision shows up: that second service cannot query `auth`'s database
-directly (see [`03-database-design.md`](03-database-design.md) on
-database-per-service), so it has to ask `auth` over the network.
+Auth owns users, credentials, and session issuance. Social owns its own
+database and cannot query auth's tables directly. The request path is:
 
-The plan for that, and where each piece stands today:
+1. Auth issues a JWT on login, set as an httpOnly `Authentication` cookie.
+2. A client sends that cookie to a guarded social mutation.
+3. The shared `GqlAuthGuard` calls auth's internal `Authenticate(token) -> User`
+   gRPC endpoint, then attaches the returned user to the GraphQL request.
+4. Social's resolver passes that authenticated identity to its service.
 
-1. ✅ `auth` issues a JWT on login, set as an httpOnly cookie
-   ([`04-authentication.md`](04-authentication.md)).
-2. ✅ `auth` exposes a small internal gRPC service —
-   `AuthController` implementing `Authenticate(token) -> User`
-   ([`proto/auth.proto`](../proto/auth.proto)). Only other backend services
-   are meant to call this, never a client; there is no gRPC client anywhere
-   yet to actually call it, since there's no second service.
-3. ⏳ **Not yet exercised.** The shared `GqlAuthGuard` in
-   `libs/backend/nestjs` is written and ready (see "Two guards named the same
-   thing" above), but nothing has registered the gRPC client it needs, because
-   no second service exists to register one.
-4. ✅ The guard itself already lives in `libs/backend/nestjs`, not
-   copy-pasted anywhere — steps 3 and 4 were designed together.
+Only auth holds `JWT_SECRET`. The default templates use HTTP ports 3000/3001
+and gRPC port 5050. Auth's `GRPC_URL` and social's `AUTH_GRPC_URL` must point
+at the same endpoint. Public social reads do not need auth to run; guarded
+mutations do. Social E2E tests exercise this network handoff against both
+running services.
 
-The first service built after `auth` is the one that proves step 3: register
-a `ClientsModule` for `AUTH_PACKAGE_NAME` (see the guard's own constructor for
-exactly what it expects to be injected), import the guard, done — no new
-guard code, no new gRPC plumbing.
+Social follows the same feature-module layout as auth. `PostsModule` imports
+`CommunitiesModule`, which exports `CommunitiesService` for membership checks.
+`CommentsModule` imports `PostsModule`, which exports `PostsService` for post
+validation. Each feature that uses the database imports `PrismaModule`.
 
 ## Module boundaries
 
@@ -156,7 +146,7 @@ on `@nx/enforce-module-boundaries`) — today it's one app with two feature
 folders, so nothing stops this, but a clean service split later would need to
 either merge `auth`+`users` into one service (likely, since they're this
 entangled) or introduce the same gRPC indirection between them that a real
-second service will use.
+social service already uses.
 
 `users.module.ts` imports `PrismaModule` and exports `UsersService` — so
 anything that needs "look up a user" imports `UsersModule`, not
