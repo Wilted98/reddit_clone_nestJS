@@ -2,7 +2,7 @@
 
 Nx monorepo with two NestJS backends: `auth` owns users, JWT sessions, and
 internal gRPC authentication; `social` owns communities, memberships, posts,
-and nested comments, voting, and HOT/NEW/TOP feeds. Each service has its own
+paginated comment threads, voting, and HOT/NEW/TOP feeds. Each service has its own
 PostgreSQL database and Prisma client. The frontend and moderation workflows
 are not implemented yet.
 
@@ -59,7 +59,11 @@ Stop Postgres with `docker compose down`; this preserves its volume.
 
 ## Verification
 
+Apply new committed migrations after switching branches or pulling updates.
+Social E2E starts the services but does not migrate its database:
+
 ```bash
+npx nx run social:deploy-prisma
 npx nx run-many -t lint -p auth,social,auth-e2e,social-e2e
 npx nx run-many -t test,build -p auth,social
 npx nx e2e auth-e2e
@@ -86,3 +90,8 @@ Public `user(username)` returns `User` without email; account operations
 return `Account` with the caller's own email. See [the auth API reference](docs/07-graphql-api-reference.md)
 for this breaking contract change and [the MVP roadmap](docs/10-mvp-roadmap.md)
 for the next one-or-two-feature batches.
+
+`comments` now returns `CommentPage` (`items`, `nextCursor`, `hasMore`), not
+a whole tree. Use `parentId` to load direct replies and `hasReplies` to
+identify expandable comments. The recursive `replies` field is removed;
+see [the comment API migration notes](docs/09-social-service.md#bounded-comment-retrieval).

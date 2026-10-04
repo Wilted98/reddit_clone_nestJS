@@ -324,5 +324,5 @@ boots the real GraphQL app with mocked persistence and exercises schema
 privacy, JWT cookies, DTO validation, aliases, and spoofed forwarding headers.
 [`profile-privacy.spec.ts`](../apps/backend/auth-e2e/src/users/profile-privacy.spec.ts)
 verifies public/private fields and caller isolation against real Postgres.
-Bounded comment retrieval and password recovery remain separate future
-batches in [the MVP roadmap](10-mvp-roadmap.md).
+Bounded comment retrieval is implemented in social; password recovery remains
+a future account-focused batch in [the MVP roadmap](10-mvp-roadmap.md).

@@ -56,8 +56,8 @@ test target. Low-limit integration tests still run with `nx test auth`.
 Keeping colocated `*.service.spec.ts` and `*.resolver.spec.ts` alongside
 `auth-e2e` and `social-e2e` is intentional. Services test business rules with
 mocked database calls; resolvers test argument and identity forwarding with
-mocked services. DTO specs cover input boundaries, and `build-tree.spec.ts`
-checks nested replies without booting Nest. `ranking.spec.ts` checks HOT SQL
+mocked services. DTO specs cover input boundaries, including inherited
+comment pagination defaults/limits. `ranking.spec.ts` checks HOT SQL
 parameterization and tie-breaking. Posts, comments, feed, and votes service specs
 import their real modules and override boundary providers, which also catches
 missing module exports without requiring a database or running auth service.
@@ -67,7 +67,7 @@ missing module exports without requiring a database or running auth service.
 because social validates auth cookies over gRPC. Its shared
 [`support/gql.ts`](../apps/backend/social-e2e/src/support/gql.ts) helper registers
 unique users and captures login cookies; the E2E suites verify the real guard,
-validation pipe, permissions, nested replies, feed pagination, private vote
+validation pipe, permissions, paginated replies, feed pagination, private vote
 lookups, and concurrent vote/comment counters. Database migrations must be
 applied before E2E; the target does not deploy them. A mocked resolver guard cannot establish any of those
 cross-service guarantees. See [the social service guide](09-social-service.md)
@@ -77,6 +77,29 @@ for API behavior and local setup.
 npx nx test social
 npx nx e2e social-e2e
 ```
+
+### Bounded comment retrieval
+
+[`comments.service.spec.ts`](../apps/backend/social/src/app/comments/comments.service.spec.ts)
+asserts bounded `take`, exclusive cursors, post/parent scoping, parameterized
+reply existence probes for visible rows only, empty pages, and retained
+soft-deleted parents. Direct service calls also reject invalid limits.
+[`comments.args.spec.ts`](../apps/backend/social/src/app/comments/dto/comments.args.spec.ts)
+checks inherited pagination validation, ID limits, optional nulls, and global
+whitelist behavior. Resolver specs check argument forwarding with no guard
+on public reads.
+
+[`comment-pagination.spec.ts`](../apps/backend/social-e2e/src/social/comment-pagination.spec.ts)
+uses the real APIs and Postgres to cover 105 roots, independent reply pages,
+score ordering, missing/cross-thread cursors, invalid inputs, deleted parents,
+and incremental traversal of a 40-level thread. Existing post/comment E2E
+tests now query sibling pages instead of recursive payloads, retaining
+creation, deletion, counter, and authentication coverage.
+
+Apply committed social migrations before E2E (`nx run social:deploy-prisma`).
+The new migration adds the sibling-order index; Nx E2E does not migrate the
+database automatically. The removed whole-tree builder is no longer part of
+the retrieval path.
 
 ### [`users.service.spec.ts`](../apps/backend/auth/src/app/users/users.service.spec.ts)
 

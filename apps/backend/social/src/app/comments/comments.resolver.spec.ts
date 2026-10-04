@@ -2,12 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { GqlAuthGuard } from '@roorin/nestjs';
 import { CommentsResolver } from './comments.resolver';
 import { CommentsService } from './comments.service';
+import { CommentsArgs } from './dto/comments.args';
 
 describe('CommentsResolver', () => {
   let resolver: CommentsResolver;
   let service: {
     createComment: jest.Mock;
-    getCommentTree: jest.Mock;
+    getComments: jest.Mock;
     deleteComment: jest.Mock;
   };
   const user = {
@@ -20,7 +21,7 @@ describe('CommentsResolver', () => {
   beforeEach(async () => {
     service = {
       createComment: jest.fn(),
-      getCommentTree: jest.fn(),
+      getComments: jest.fn(),
       deleteComment: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -44,11 +45,21 @@ describe('CommentsResolver', () => {
     expect(service.createComment).toHaveBeenCalledWith(input, user);
   });
 
-  it('reads a public post-scoped comment tree', async () => {
-    const tree = [{ id: 'comment-1', replies: [] }];
-    service.getCommentTree.mockResolvedValue(tree);
-    await expect(resolver.getComments('post-1')).resolves.toBe(tree);
-    expect(service.getCommentTree).toHaveBeenCalledWith('post-1');
+  it('forwards public root/reply pagination arguments unchanged', async () => {
+    const args = Object.assign(new CommentsArgs(), {
+      postId: 'post-1',
+      parentId: 'root-1',
+      cursor: 'reply-1',
+      limit: 10,
+    });
+    const page = {
+      items: [{ id: 'comment-1', hasReplies: true }],
+      nextCursor: null,
+      hasMore: false,
+    };
+    service.getComments.mockResolvedValue(page);
+    await expect(resolver.getComments(args)).resolves.toBe(page);
+    expect(service.getComments).toHaveBeenCalledWith(args);
   });
 
   it('deletes as the authenticated user', async () => {

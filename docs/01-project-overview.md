@@ -21,7 +21,7 @@ database. The auth service can:
   `JWT_SECRET` itself.
 
 Social supports community creation/listing, memberships, member-only text/link
-posts, author pagination, nested comments, author-only soft deletion, voting,
+posts, author pagination, bounded root/reply comment pages, author-only soft deletion, voting,
 and public HOT/NEW/TOP feeds. It authenticates guarded mutations and private
 vote queries over auth's gRPC endpoint. The frontend and moderation workflows
 remain unimplemented.
@@ -66,8 +66,8 @@ for auth examples and [`09-social-service.md`](09-social-service.md) for social.
 ## What's next
 
 See [the MVP roadmap](10-mvp-roadmap.md) for small implementation batches.
-Public/private profiles and auth rate limits are implemented; bounded
-comment retrieval, profile activity, post/comment editing, membership context,
+Public/private profiles, auth rate limits, and bounded comment retrieval are
+implemented. Profile activity, post/comment editing, membership context,
 community settings, moderation/search, and password recovery remain planned.
 Frontend clients remain future work. Larger feeds
 will need a materialized HOT ranking: the current offset cap limits pagination
