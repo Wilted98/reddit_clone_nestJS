@@ -11,5 +11,5 @@
 | 7   | [`07-graphql-api-reference.md`](07-graphql-api-reference.md) | Auth queries and mutations, with example requests                                                              |
 | 8   | [`08-testing-strategy.md`](08-testing-strategy.md)           | The testing pyramid used here, how to run each layer, what's covered                                           |
 
-Communities, membership rules, posts, nested comments, the social API, and its tests are documented in
+Communities, membership rules, posts, nested comments, votes, feeds, and their tests are documented in
 [`09-social-service.md`](09-social-service.md).

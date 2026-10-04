@@ -2,8 +2,9 @@
 
 Nx monorepo with two NestJS backends: `auth` owns users, JWT sessions, and
 internal gRPC authentication; `social` owns communities, memberships, posts,
-and nested comments. Each service has its own PostgreSQL database and Prisma
-client. Voting and feed APIs and the frontend are not implemented yet.
+and nested comments, voting, and HOT/NEW/TOP feeds. Each service has its own
+PostgreSQL database and Prisma client. The frontend and moderation workflows
+are not implemented yet.
 
 ## Local setup
 
@@ -51,7 +52,7 @@ npx nx serve social
 
 GraphQL endpoints are `http://localhost:3000/graphql` (auth) and
 `http://localhost:3001/graphql` (social). Public social queries do not require
-auth to run. Guarded social mutations require auth's gRPC endpoint and the
+auth to run. Guarded social mutations and private vote queries require auth's gRPC endpoint and the
 `Authentication` cookie returned by login.
 
 Stop Postgres with `docker compose down`; this preserves its volume.

@@ -100,8 +100,8 @@ model Vote {
   userId    String
   postId    String?
   commentId String?
-  // 1 or -1 only. Un-voting deletes the row rather than storing 0, which keeps
-  // the unique constraints below meaningful.
+  // CHECK constraints in enforce_vote_invariants allow only -1/1 and exactly
+  // one target. Un-voting deletes the row rather than storing 0.
   value     Int
   createdAt DateTime @default(now())
 

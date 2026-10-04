@@ -30,17 +30,19 @@ Keeping colocated `*.service.spec.ts` and `*.resolver.spec.ts` alongside
 `auth-e2e` and `social-e2e` is intentional. Services test business rules with
 mocked database calls; resolvers test argument and identity forwarding with
 mocked services. DTO specs cover input boundaries, and `build-tree.spec.ts`
-checks nested replies without booting Nest. Posts and comments service specs
+checks nested replies without booting Nest. `ranking.spec.ts` checks HOT SQL
+parameterization and tie-breaking. Posts, comments, feed, and votes service specs
 import their real modules and override boundary providers, which also catches
 missing module exports without requiring a database or running auth service.
 
 `auth-e2e` owns registration, login, sessions, and profile workflows.
-`social-e2e` owns communities, posts, and comments, but starts both services
+`social-e2e` owns communities, posts, comments, feeds, and votes, but starts both services
 because social validates auth cookies over gRPC. Its shared
 [`support/gql.ts`](../apps/backend/social-e2e/src/support/gql.ts) helper registers
 unique users and captures login cookies; the E2E suites verify the real guard,
-validation pipe, migrations, permissions, nested replies, and concurrent
-database counters. A mocked resolver guard cannot establish any of those
+validation pipe, permissions, nested replies, feed pagination, private vote
+lookups, and concurrent vote/comment counters. Database migrations must be
+applied before E2E; the target does not deploy them. A mocked resolver guard cannot establish any of those
 cross-service guarantees. See [the social service guide](09-social-service.md)
 for API behavior and local setup.
 

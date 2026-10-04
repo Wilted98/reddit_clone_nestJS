@@ -18,9 +18,10 @@ database. The auth service can:
   `JWT_SECRET` itself.
 
 Social supports community creation/listing, memberships, member-only text/link
-posts, author pagination, nested comments, and author-only soft deletion.
-It authenticates guarded mutations over auth's gRPC endpoint. Vote persistence
-is prepared, but voting and feed APIs and the frontend remain unimplemented.
+posts, author pagination, nested comments, author-only soft deletion, voting,
+and public HOT/NEW/TOP feeds. It authenticates guarded mutations and private
+vote queries over auth's gRPC endpoint. The frontend and moderation workflows
+remain unimplemented.
 See [`09-social-service.md`](09-social-service.md) for social operations,
 [`07-graphql-api-reference.md`](07-graphql-api-reference.md) for auth's
 schema, and [`04-authentication.md`](04-authentication.md) for how the auth
@@ -35,7 +36,7 @@ roorin/
 │   └── backend/
 │       ├── auth/        users, JWT sessions, and gRPC authentication
 │       ├── auth-e2e/    black-box tests against a running `auth`
-│       ├── social/      communities, memberships, posts, and comments
+│       ├── social/      communities, posts, comments, votes, and feeds
 │       └── social-e2e/  black-box tests against running auth and social
 ├── libs/
 │   └── backend/
@@ -61,6 +62,6 @@ for auth examples and [`09-social-service.md`](09-social-service.md) for social.
 
 ## What's next
 
-Voting and feed APIs can build on the existing posts, comments, memberships,
-and prepared Vote model. Frontend clients and moderation workflows remain
-future work.
+Frontend clients and moderation workflows remain future work. Larger feeds
+will need a materialized HOT ranking: the current offset cap limits pagination
+depth but does not bound the database's computed sort.

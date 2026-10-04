@@ -128,10 +128,20 @@ databases, not schemas or shared tables. Social stores user IDs and author
 usernames returned by auth, with no cross-database foreign keys. The services
 communicate over gRPC instead of reading each other's tables.
 
-Social's schema contains Community, Membership, Post, Comment, and prepared
-Vote persistence. Posts belong to communities; comments belong to posts and
+Social's schema contains Community, Membership, Post, Comment, and Vote
+persistence. Posts belong to communities; comments belong to posts and
 can reference a same-post parent. Database cascades apply to hard deletion,
 while the API soft-deletes posts/comments to retain threads. Creating comments
-updates the post's total counter transactionally. Vote target uniqueness and
-foreign keys are present, but voting APIs and vote-value/target validation are
-future work. See [the social guide](09-social-service.md) for current behavior.
+updates the post's total counter transactionally. Vote uniqueness is enforced
+per user/target; foreign keys validate target existence. The
+`enforce_vote_invariants` migration adds PostgreSQL CHECK constraints requiring
+exactly one post/comment target and a stored value of -1 or 1. These constraints
+are migration SQL, not expressible in the Prisma schema; retain the migration
+when provisioning databases. Removing a vote deletes its row instead of storing 0.
+
+Vote transactions lock the target row with `SELECT ... FOR UPDATE` before
+reading the user's previous vote, then update the vote and score by the delta.
+This serializes concurrent changes on a target and keeps the stored score equal
+to the sum of its votes. A transaction without this lock could read a stale
+previous value and drift even if both writes commit successfully.
+See [the social guide](09-social-service.md) for the API and feed behavior.
