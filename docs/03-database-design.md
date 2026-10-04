@@ -108,9 +108,9 @@ The generated client is written to
 service with its own schema exists, each service's generated client needs
 its own home, or the second `prisma generate` would overwrite the first.
 `@prisma-clients/<service-name>` is the namespace that keeps them apart —
-already anticipating the multi-service future described in
-[`02-architecture.md`](02-architecture.md), even though there's only one
-consumer of it today.
+used by both auth and social today. Social generates its client in
+`node_modules/@prisma-clients/roorin-social/`, so generation does not overwrite
+auth's client.
 
 ## Environment and local setup
 
@@ -121,13 +121,17 @@ points at the `roorin_auth` Postgres database started by
 [`scripts/init-databases.sh`](../scripts/init-databases.sh) on the
 container's first boot.
 
-## Database-per-service (the plan, not yet exercised)
+## Database-per-service
 
-There is only one database today, so "database-per-service" is currently a
-statement of intent rather than something you can observe. The intent: when
-a second service is added, it gets its **own** Postgres database (not a
-second schema in the same one, not shared tables), and the two services never
-run a SQL query against each other's tables — only ever talk over the network
-(see [`02-architecture.md`](02-architecture.md) "Where this is heading"). The
-`cuid` choice above and the per-service generated-client namespace both exist
-specifically so that boundary is cheap to hold once it's real.
+Auth owns `roorin_auth`; social owns `roorin_social`. These are separate
+databases, not schemas or shared tables. Social stores user IDs and author
+usernames returned by auth, with no cross-database foreign keys. The services
+communicate over gRPC instead of reading each other's tables.
+
+Social's schema contains Community, Membership, Post, Comment, and prepared
+Vote persistence. Posts belong to communities; comments belong to posts and
+can reference a same-post parent. Database cascades apply to hard deletion,
+while the API soft-deletes posts/comments to retain threads. Creating comments
+updates the post's total counter transactionally. Vote target uniqueness and
+foreign keys are present, but voting APIs and vote-value/target validation are
+future work. See [the social guide](09-social-service.md) for current behavior.

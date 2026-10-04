@@ -10,6 +10,9 @@ server is the actual source of truth.
 
 ## Endpoint
 
+This page covers auth only. Social's endpoint, operations, and input constraints
+are documented in [the social service guide](09-social-service.md).
+
 ```
 POST http://localhost:3000/graphql
 ```

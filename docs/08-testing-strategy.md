@@ -2,15 +2,16 @@
 
 ## The pyramid used here
 
-Four layers, each testing a different thing, deliberately not overlapping:
+Five layers, each with a different responsibility. Some workflows appear at
+multiple layers, but each layer verifies a different contract:
 
-| Layer                            | Tests                                                                                         | Real dependencies?                                     | Run with          |
-| -------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------- |
-| **Unit — service**               | Business logic: hashing, password verification, error translation, argument shape             | No — Prisma is mocked                                  | `nx test auth`    |
-| **Unit — DTO validation**        | The `class-validator` rules themselves, in isolation                                          | No                                                     | `nx test auth`    |
-| **Unit — resolver / controller** | The adapter layer forwards the right arguments and returns the service's result, nothing more | No — service is mocked                                 | `nx test auth`    |
-| **Integration — module wiring**  | Whether Nest's DI container actually constructs and connects everything a module claims to    | Only the DB is mocked; real Passport, real JWT signing | `nx test auth`    |
-| **E2E**                          | The real server, real Postgres, over real HTTP                                                | Yes                                                    | `nx e2e auth-e2e` |
+| Layer                            | Tests                                                                         | Real dependencies?                                                   | Run with                                |
+| -------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------- |
+| **Unit — service**               | Business logic: hashing, permissions, validation, counters, pagination        | No — Prisma is mocked                                                | `nx test auth` / `nx test social`       |
+| **Unit — DTO validation**        | The `class-validator` rules and selected whitelist behavior                   | No                                                                   | `nx test auth` / `nx test social`       |
+| **Unit — resolver / controller** | The adapter forwards arguments and authenticated identity                     | No — service and guard are mocked                                    | `nx test auth` / `nx test social`       |
+| **Integration — module wiring**  | Nest constructs real module providers and resolves imported/exported services | Auth: real Passport/JWT, mocked DB; social: mocked DB/services/guard | `nx test auth` / `nx test social`       |
+| **E2E**                          | The running API, Postgres, HTTP, and social's gRPC authentication handoff     | Yes                                                                  | `nx e2e auth-e2e` / `nx e2e social-e2e` |
 
 The rule that keeps these from becoming redundant: **unit tests prove the
 logic is correct in isolation; the integration test proves a specific piece
@@ -22,6 +23,31 @@ it passed while the feature was completely broken), and an e2e test alone
 would make every edge case slow and DB-dependent to verify.
 
 ## Unit tests
+
+### Social specs and E2E ownership
+
+Keeping colocated `*.service.spec.ts` and `*.resolver.spec.ts` alongside
+`auth-e2e` and `social-e2e` is intentional. Services test business rules with
+mocked database calls; resolvers test argument and identity forwarding with
+mocked services. DTO specs cover input boundaries, and `build-tree.spec.ts`
+checks nested replies without booting Nest. Posts and comments service specs
+import their real modules and override boundary providers, which also catches
+missing module exports without requiring a database or running auth service.
+
+`auth-e2e` owns registration, login, sessions, and profile workflows.
+`social-e2e` owns communities, posts, and comments, but starts both services
+because social validates auth cookies over gRPC. Its shared
+[`support/gql.ts`](../apps/backend/social-e2e/src/support/gql.ts) helper registers
+unique users and captures login cookies; the E2E suites verify the real guard,
+validation pipe, migrations, permissions, nested replies, and concurrent
+database counters. A mocked resolver guard cannot establish any of those
+cross-service guarantees. See [the social service guide](09-social-service.md)
+for API behavior and local setup.
+
+```bash
+npx nx test social
+npx nx e2e social-e2e
+```
 
 ### [`users.service.spec.ts`](../apps/backend/auth/src/app/users/users.service.spec.ts)
 
