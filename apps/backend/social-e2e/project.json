@@ -2,12 +2,12 @@
   "name": "social-e2e",
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "implicitDependencies": ["social"],
+  "implicitDependencies": ["auth", "social"],
   "targets": {
     "e2e": {
       "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/social-e2e"],
-      "dependsOn": ["social:build", "social:serve"],
+      "dependsOn": ["auth:build", "auth:serve", "social:build", "social:serve"],
       "options": {
         "jestConfig": "apps/backend/social-e2e/jest.config.cts",
         "passWithNoTests": false
