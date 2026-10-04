@@ -1,6 +1,6 @@
-# Social service: communities, posts, and comments
+# Social service: communities, posts, comments, votes, and feeds
 
-The `social` Nx application implements communities, posts, and comments. It runs on port
+The `social` Nx application implements communities, posts, comments, votes, and feeds. It runs on port
 3001, owns the `roorin_social` database, and registers a gRPC client for the
 existing auth service at `localhost:5050`. The auth service retains ownership of
 users and JWT verification; social stores user IDs without cross-database
@@ -13,7 +13,7 @@ foreign keys.
 - A `Membership` model keyed by user ID and community ID, with `MEMBER`,
   `MODERATOR`, and `OWNER` roles. Deleting a community cascades to its memberships.
 - Committed Community, Membership, Post, Comment, and Vote migrations and a
-  separate Prisma client. Vote storage is prepared; voting has no API yet.
+  separate Prisma client. Vote rows have value and single-target CHECK constraints.
 - Shared HTTP bootstrap, cookie parsing, validation, CORS, and GraphQL setup.
 - A public `health` GraphQL query returning `"ok"`.
 - Community creation, public lookup and listing, and guarded join/leave operations.
@@ -21,6 +21,8 @@ foreign keys.
   and author-only soft deletion.
 - Authenticated comment creation, same-post parent validation, public nested
   threads, and author-only soft deletion.
+- Authenticated post/comment voting, vote removal, and private batch vote lookups.
+- Public global or community-scoped HOT, NEW, and TOP feeds.
 
 Community creation writes the owner membership and an initial member count of
 one together. Join and leave update membership rows and the counter within a
@@ -28,27 +30,32 @@ transaction. Duplicate requests, including concurrent ones, only change the
 counter when a row is inserted or deleted. Owners cannot leave their own
 communities; leaving as a non-member is a no-op.
 
-The completed reference project also implements voting and feeds. Those APIs
-remain outside this workspace's current scope; scores currently default to zero.
-The moderator role is stored but has no moderation operations yet.
+These feature APIs now cover the completed reference's social backend scope.
+Voting additionally locks targets before reading previous votes, and HOT adds
+an ID tie-breaker. The moderator role is stored but has no moderation operations yet.
 
 ## GraphQL operations
 
-| Operation                                | Access                   | Result                              |
-| ---------------------------------------- | ------------------------ | ----------------------------------- |
-| `health`                                 | Public                   | `"ok"`                              |
-| `community(slug)`                        | Public                   | One community, or a not-found error |
-| `communities(cursor, limit)`             | Public                   | `items`, `nextCursor`, `hasMore`    |
-| `createCommunity(createCommunityInput)`  | Authenticated            | Community with an owner membership  |
-| `joinCommunity(slug)`                    | Authenticated            | Community after joining             |
-| `leaveCommunity(slug)`                   | Authenticated, non-owner | Community after leaving             |
-| `post(id)`                               | Public                   | One post, or a not-found error      |
-| `postsByAuthor(authorId, cursor, limit)` | Public                   | Live posts, `nextCursor`, `hasMore` |
-| `createPost(createPostInput)`            | Authenticated member     | Text or link post                   |
-| `deletePost(id)`                         | Authenticated author     | Soft-deleted post                   |
-| `comments(postId)`                       | Public                   | Nested comment tree                 |
-| `createComment(createCommentInput)`      | Authenticated            | New comment or reply                |
-| `deleteComment(id)`                      | Authenticated author     | Soft-deleted comment                |
+| Operation                                                 | Access                   | Result                              |
+| --------------------------------------------------------- | ------------------------ | ----------------------------------- |
+| `health`                                                  | Public                   | `"ok"`                              |
+| `community(slug)`                                         | Public                   | One community, or a not-found error |
+| `communities(cursor, limit)`                              | Public                   | `items`, `nextCursor`, `hasMore`    |
+| `createCommunity(createCommunityInput)`                   | Authenticated            | Community with an owner membership  |
+| `joinCommunity(slug)`                                     | Authenticated            | Community after joining             |
+| `leaveCommunity(slug)`                                    | Authenticated, non-owner | Community after leaving             |
+| `post(id)`                                                | Public                   | One post, or a not-found error      |
+| `postsByAuthor(authorId, cursor, limit)`                  | Public                   | Live posts, `nextCursor`, `hasMore` |
+| `createPost(createPostInput)`                             | Authenticated member     | Text or link post                   |
+| `deletePost(id)`                                          | Authenticated author     | Soft-deleted post                   |
+| `comments(postId)`                                        | Public                   | Nested comment tree                 |
+| `createComment(createCommentInput)`                       | Authenticated            | New comment or reply                |
+| `deleteComment(id)`                                       | Authenticated author     | Soft-deleted comment                |
+| `feed(sort, range, communitySlug, cursor, offset, limit)` | Public                   | Post page                           |
+| `votePost(voteInput)`                                     | Authenticated            | Target ID, updated score, own vote  |
+| `voteComment(voteInput)`                                  | Authenticated            | Target ID, updated score, own vote  |
+| `myPostVotes(postIds)`                                    | Authenticated            | Caller's stored post votes          |
+| `myCommentVotes(commentIds)`                              | Authenticated            | Caller's stored comment votes       |
 
 Creation accepts a lowercase slug of 3-24 letters, digits, or underscores, a
 name of 3-60 characters, and an optional description up to 500 characters.
@@ -89,6 +96,73 @@ Comment deletion replaces its body with `[deleted]` and sets `deletedAt` without
 removing descendants. `commentCount` counts all stored comments, including
 soft-deleted ones, and is not decremented on deletion. Mutation comment payloads
 return an empty `replies` array; query `comments(postId)` to read descendants.
+
+## Voting
+
+`VoteInput` accepts a nonempty string `targetId` and integer `value`: 1 for an
+upvote, -1 for a downvote, or 0 to remove the caller's vote. Any authenticated
+user can vote; membership and authorship are not required. Target existence is
+checked before writing, and missing targets produce a not-found error, including
+when removing a vote. Identity always comes from auth.
+
+Each transaction locks the target row before looking up the previous vote,
+then changes its score by `newValue - previousValue`. Repeating a vote leaves
+the score unchanged; flipping 1 to -1 changes it by -2. Vote removal deletes
+the row. The lock serializes requests on the same target to prevent duplicate
+inserts or stale deltas under concurrent retries. Database constraints enforce
+one target and a stored value of -1 or 1, alongside per-user/target uniqueness.
+
+`myPostVotes` and `myCommentVotes` return only the authenticated caller's stored
+votes among the requested IDs; unvoted and unknown targets are omitted. Their
+`VoteResult.score` is a placeholder 0, not the target's current score. Read the
+score from the feed, post, or comment query; vote mutations return the updated
+score. Soft-deleted targets remain votable, matching the reference behavior.
+Blocking votes on deleted content would be a separate policy change.
+
+## Feed
+
+`feed` is public and excludes soft-deleted posts. Omitting `communitySlug`
+returns a global feed; a supplied nonempty slug scopes it to that community,
+and an unknown community returns a not-found error.
+
+- `HOT` (default) orders by `score / (ageInHours + 2)^1.8`, then creation time
+  descending and ID ascending. It uses `offset` (default 0, range 0-500), returns
+  `nextCursor: null`, and overfetches one row to determine `hasMore`.
+- `NEW` orders by creation time descending, then ID ascending.
+- `TOP` orders by score descending, then ID ascending. Its `range` is `ALL`
+  by default, or `DAY` (24 hours), `WEEK` (7 days), or `MONTH` (30 days), filtering
+  the post's creation time rather than when votes were cast.
+
+NEW/TOP use exclusive ID cursors. All modes use `limit` 25 by default, range
+1-100. `range` is ignored by HOT/NEW; `cursor` is ignored by HOT; `offset` is
+ignored by NEW/TOP. Feed pages are not snapshots: votes and new posts can
+reorder results between requests. HOT's offset cap limits skipped rows, not
+the cost of ranking all matching posts; a larger dataset needs materialized
+ranking or another indexed strategy. Raw HOT SQL binds scope and pagination
+values rather than interpolating them into SQL text.
+
+```graphql
+query {
+  feed(sort: TOP, range: WEEK, communitySlug: "romania", limit: 10) {
+    items {
+      id
+      title
+      score
+      commentCount
+    }
+    hasMore
+    nextCursor
+  }
+}
+
+mutation {
+  votePost(voteInput: { targetId: "POST_ID", value: 1 }) {
+    targetId
+    score
+    myVote
+  }
+}
+```
 
 ## Run locally
 
@@ -162,9 +236,17 @@ rejected anonymous and forged-cookie mutations, duplicate slugs, input
 validation, pagination, and repeated and concurrent joins/leaves.
 They also exercise post/comment permissions, author pagination, nested replies,
 deletion behavior, concurrent comment counters, and concurrent post deletion.
-Both social E2E feature suites share `src/support/gql.ts` for registration,
+Feed and vote specs cover score deltas, target locking, private lookup forwarding,
+input bounds, SQL parameters, sorting, time windows, and both pagination modes.
+E2E also exercises vote retries, flips, removal, concurrent mixed changes,
+missing targets, private lookup isolation, and public feed scoping/pagination.
+All social E2E feature suites share `src/support/gql.ts` for registration,
 login cookies, and GraphQL requests.
 
 Use `npx nx run social:migrate-prisma --name <migration>` to create a future
 migration in development. Use `social:deploy-prisma` to apply committed
 migrations without creating new ones.
+
+The vote constraint migration fails if existing rows have invalid values or
+zero/two targets. Audit and repair such rows deliberately before deploying;
+the migration does not delete data or recompute existing scores automatically.

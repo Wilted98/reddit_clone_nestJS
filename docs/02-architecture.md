@@ -16,7 +16,7 @@ apps/
 └── backend/
     ├── auth/        the auth service (GraphQL API + gRPC + Postgres)
     ├── auth-e2e/    black-box tests that boot `auth` and hit it over HTTP
-    ├── social/      communities, memberships, posts, comments, own Postgres DB
+    ├── social/      communities, posts, comments, votes, feeds, own Postgres DB
     └── social-e2e/  HTTP tests against both services and real gRPC auth
 
 libs/
@@ -92,7 +92,7 @@ Auth owns users, credentials, and session issuance. Social owns its own
 database and cannot query auth's tables directly. The request path is:
 
 1. Auth issues a JWT on login, set as an httpOnly `Authentication` cookie.
-2. A client sends that cookie to a guarded social mutation.
+2. A client sends that cookie to a guarded social mutation or private vote query.
 3. The shared `GqlAuthGuard` calls auth's internal `Authenticate(token) -> User`
    gRPC endpoint, then attaches the returned user to the GraphQL request.
 4. Social's resolver passes that authenticated identity to its service.
@@ -106,7 +106,9 @@ running services.
 Social follows the same feature-module layout as auth. `PostsModule` imports
 `CommunitiesModule`, which exports `CommunitiesService` for membership checks.
 `CommentsModule` imports `PostsModule`, which exports `PostsService` for post
-validation. Each feature that uses the database imports `PrismaModule`.
+validation. `FeedModule` imports `CommunitiesModule` for community scoping;
+`VotesModule` uses `PrismaModule` for transactional vote and score writes.
+Each feature that uses the database imports `PrismaModule`.
 
 ## Module boundaries
 

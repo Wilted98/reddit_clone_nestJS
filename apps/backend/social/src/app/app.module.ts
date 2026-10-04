@@ -9,6 +9,8 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AppResolver } from './app.resolver';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
+import { FeedModule } from './feed/feed.module';
+import { VotesModule } from './votes/votes.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { CommentsModule } from './comments/comments.module';
     CommunitiesModule,
     PostsModule,
     CommentsModule,
+    FeedModule,
+    VotesModule,
   ],
   providers: [AppResolver],
 })
