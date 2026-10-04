@@ -15,5 +15,10 @@ Communities, membership rules, posts, nested comments, votes, feeds, and their t
 [`09-social-service.md`](09-social-service.md).
 
 [`10-mvp-roadmap.md`](10-mvp-roadmap.md) records the public/private profile
-split, auth rate limits, bounded comment pages, client migrations, deployment
+split, auth rate limits, bounded comment pages, profile activity/editing,
+client migrations, deployment
 limitations, and the next one-or-two-feature batches.
+
+[`11-frontend-handoff.md`](11-frontend-handoff.md) maps the current backend
+contracts to frontend workflows, including cookies, profile privacy, edit
+state, pagination, error handling, and remaining backend work.

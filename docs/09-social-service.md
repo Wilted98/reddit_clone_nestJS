@@ -18,9 +18,10 @@ foreign keys.
 - A public `health` GraphQL query returning `"ok"`.
 - Community creation, public lookup and listing, and guarded join/leave operations.
 - Member-only text/link post creation, public lookup and author pagination,
-  and author-only soft deletion.
+  and author-only editing and soft deletion.
 - Authenticated comment creation, same-post parent validation, bounded public
-  root/reply pages, and author-only soft deletion.
+  root/reply pages, bounded author activity, and author-only editing and soft deletion.
+- Nullable post/comment `editedAt` timestamps independent of votes and counters.
 - Authenticated post/comment voting, vote removal, and private batch vote lookups.
 - Public global or community-scoped HOT, NEW, and TOP feeds.
 
@@ -47,9 +48,12 @@ an ID tie-breaker. The moderator role is stored but has no moderation operations
 | `post(id)`                                                | Public                   | One post, or a not-found error           |
 | `postsByAuthor(authorId, cursor, limit)`                  | Public                   | Live posts, `nextCursor`, `hasMore`      |
 | `createPost(createPostInput)`                             | Authenticated member     | Text or link post                        |
+| `updatePost(updatePostInput)`                             | Authenticated author     | Edited text or link post                 |
 | `deletePost(id)`                                          | Authenticated author     | Soft-deleted post                        |
 | `comments(postId, parentId, cursor, limit)`               | Public                   | Direct siblings, `nextCursor`, `hasMore` |
+| `commentsByAuthor(authorId, cursor, limit)`               | Public                   | Live comments, `nextCursor`, `hasMore`   |
 | `createComment(createCommentInput)`                       | Authenticated            | New comment or reply                     |
+| `updateComment(updateCommentInput)`                       | Authenticated author     | Edited comment with reply availability   |
 | `deleteComment(id)`                                       | Authenticated author     | Soft-deleted comment                     |
 | `feed(sort, range, communitySlug, cursor, offset, limit)` | Public                   | Post page                                |
 | `votePost(voteInput)`                                     | Authenticated            | Target ID, updated score, own vote       |
@@ -178,6 +182,134 @@ removing descendants. `commentCount` counts all stored comments, including
 soft-deleted ones, and is not decremented on deletion. New-comment payloads
 have `hasReplies: false`; delete payloads report existing reply availability.
 Use `comments(postId, parentId)` to read descendants one level at a time.
+
+### Profile activity
+
+Public profiles combine two services: call auth's `user(username)` for the
+public profile and its ID, then social's `postsByAuthor` and `commentsByAuthor`
+with that `authorId`. Public profiles never include email; use auth's `me`
+for the signed-in caller's private account. There is no cross-database join
+or new auth/gRPC contract. A frontend profile page is not implemented yet.
+
+Both activity queries return `items`, `nextCursor`, and `hasMore`, default to
+25 items, and accept limits of 1-100. Each fetch materializes at most
+`limit + 1` rows and excludes the lookahead from the response. Comments
+include roots and replies across posts, with `postId`, `parentId`, and
+`hasReplies` for navigation. Each query excludes its own soft-deleted rows;
+live comments on a deleted post remain visible because the thread survives.
+An unknown author ID returns an empty terminal page.
+
+Activity sorts by creation time descending, then ID ascending. The cursor
+is the last visible item's ID and must exist for the same author and content
+type. Missing or foreign cursors produce a `400`-shaped error. Author and
+cursor IDs must be nonempty and at most 128 characters. Omitted/null cursors
+start at the beginning. A cursor that was soft-deleted between requests still
+works: paging compares its stored creation time and ID instead of requiring
+the anchor to remain in the live result set. Posts and comments have separate
+cursors, and switching authors starts a new pagination session.
+
+Edits and votes do not reorder activity. These are live pages, not snapshots:
+new records and deletions can change what is visible between requests.
+`hasReplies` remains a current availability hint, not a nested reply payload.
+
+```graphql
+query ProfileActivity($authorId: String!) {
+  postsByAuthor(authorId: $authorId, limit: 25) {
+    items {
+      id
+      title
+      body
+      url
+      createdAt
+      editedAt
+      score
+      commentCount
+    }
+    nextCursor
+    hasMore
+  }
+  commentsByAuthor(authorId: $authorId, limit: 25) {
+    items {
+      id
+      postId
+      parentId
+      body
+      createdAt
+      editedAt
+      score
+      hasReplies
+    }
+    nextCursor
+    hasMore
+  }
+}
+```
+
+### Content editing
+
+`UpdatePostInput` requires `id` and at least one of `title` (3-300 characters),
+`body` (1-40,000 characters), or a valid `url`. Omit unchanged fields; explicit
+nulls and an empty patch are invalid. Text posts can change title/body and
+link posts can change title/url. Editing cannot convert between text and
+link posts. `UpdateCommentInput` requires `id` and `body` (1-10,000 characters).
+IDs must be nonempty and at most 128 characters.
+
+Only the authenticated content author can edit, including after leaving the
+community. Stored moderator/owner roles do not grant editing privileges over
+another user's content. Missing targets produce `404`, other authors `403`,
+and deleted targets `400`-shaped errors. Live comments on deleted posts remain
+editable; new comments on those posts are still rejected.
+
+Each successful edit sets `editedAt`. It is null for new/previously unedited
+records, including pre-migration data. Do not use `updatedAt` as an edit
+indicator: votes and comment counters also update rows. Edits preserve IDs,
+authorship, location, creation time, scores, counters, and descendants.
+Conditional writes require the target to remain live, so an overlapping
+deletion cannot restore cleared post content or a deleted comment body.
+Overlapping edits use last-writer-wins for supplied fields; there is no edit
+history or optimistic version check. Even a same-content edit records a new
+edit timestamp.
+
+```graphql
+mutation EditPost($input: UpdatePostInput!) {
+  updatePost(updatePostInput: $input) {
+    id
+    title
+    body
+    url
+    createdAt
+    editedAt
+  }
+}
+
+mutation EditComment($input: UpdateCommentInput!) {
+  updateComment(updateCommentInput: $input) {
+    id
+    postId
+    parentId
+    body
+    editedAt
+    hasReplies
+  }
+}
+```
+
+The additive `20261004195514_add_profile_activity_content_edits` migration
+adds nullable `editedAt` columns to Post/Comment and an author-comment index
+on `(authorId, createdAt DESC, id)`. Apply it before starting the updated
+social service or E2E:
+
+```bash
+npx nx run social:deploy-prisma
+```
+
+Existing edit timestamps stay null; no inferred backfill is performed.
+Build/test targets regenerate the social Prisma client. Regenerate frontend
+schema types to use the new queries, inputs, and fields. Existing valid
+GraphQL selections remain compatible; malformed/foreign author cursors are
+now rejected explicitly. No auth migration or proto regeneration is required
+for this batch. See [the frontend handoff](11-frontend-handoff.md) for client
+integration and remaining backend work.
 
 ## Voting
 
@@ -332,6 +464,13 @@ adds 105-root pagination, independent reply pages, score ordering, empty leaf
 pages, DTO bounds, cursor/parent isolation, soft-deleted parent reachability,
 a 40-level thread traversed one page at a time, and schema checks that remove
 the recursive field.
+
+[`profile-activity-editing.spec.ts`](../apps/backend/social-e2e/src/social/profile-activity-editing.spec.ts)
+adds cross-service public profile activity, independent bounded pages,
+deleted-cursor continuation, validation, author-only text/link/comment edits,
+immutable fields, edit timestamps unaffected by votes/counters, retained
+replies, edits after leaving, and concurrent edit/delete safety. Colocated
+service/resolver/DTO specs cover the corresponding rules and conditional writes.
 
 Use `npx nx run social:migrate-prisma --name <migration>` to create a future
 migration in development. Use `social:deploy-prisma` to apply committed

@@ -41,13 +41,42 @@ migration. See [the social guide](09-social-service.md#bounded-comment-retrieval
 for client updates, examples, migration commands, and live-ranking caveats.
 Unit and real-database E2E coverage include wide and deep threads.
 
-## Next batches
+## Batch 3: implemented
 
-| Batch          | Features                                | Completion boundary                                                                                                                                                                                          |
-| -------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 3              | Profile activity + post/comment editing | Reuse public profile lookup and existing author-post pagination, add bounded author-comment history, and support author-only edits with an edit timestamp. A frontend profile page remains separate UI work. |
-| 4              | Membership context + community settings | Expose the caller's membership/role and owner-authorized settings updates; preserve stable community identity and document slug behavior.                                                                    |
-| 5, when needed | Basic moderation + search               | Add reports/removal/role checks appropriate to the MVP and bounded search for communities/posts; avoid an elaborate moderation platform.                                                                     |
+Branch: `feat/social-profile-activity-content-editing-tests-and-docs`.
+
+1. **Profile activity.** Reuse auth's public `user(username)` and social's
+   `postsByAuthor`; add bounded `commentsByAuthor` for roots/replies across
+   posts. Activity cursors are author-scoped and survive soft-deleting their
+   anchor. A frontend profile page remains separate UI work.
+2. **Post/comment editing.** Authors can patch their live content without
+   changing its identity, location, counters, or text/link type. Nullable
+   `editedAt` records content edits independently of vote/counter updates.
+   Conditional writes prevent an edit from resurrecting deleted content.
+
+This is an additive GraphQL change with a required social migration. See
+[the social guide](09-social-service.md#content-editing) for validation,
+permission rules, deployment, and concurrent-edit limitations.
+
+## Frontend handoff
+
+This completes the core discussion API milestone, not every backend feature
+or production-hardening task. Frontend work can start now: first auth + feed,
+then community + discussion views, then profile + editing. Keep the same
+one-or-two-feature workflow. [The frontend handoff](11-frontend-handoff.md)
+maps these screens to the current contracts and cookie/pagination rules.
+
+Membership context/settings remain the next backend batch, useful alongside
+the community UI. Do not infer the caller's joined state or role from a
+community's member count. Moderation/search can follow when needed; recovery
+and deployment hardening remain important before users rely on the service.
+
+## Next backend batches
+
+| Batch          | Features                                | Completion boundary                                                                                                                       |
+| -------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 4              | Membership context + community settings | Expose the caller's membership/role and owner-authorized settings updates; preserve stable community identity and document slug behavior. |
+| 5, when needed | Basic moderation + search               | Add reports/removal/role checks appropriate to the MVP and bounded search for communities/posts; avoid an elaborate moderation platform.  |
 
 Password recovery deserves a separate account-focused batch before people
 rely on their accounts: expiring, single-use tokens; safe storage; delivery;

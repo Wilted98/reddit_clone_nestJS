@@ -24,6 +24,9 @@ export class Comment extends AbstractModel {
   @Field({ nullable: true })
   deletedAt?: Date;
 
+  @Field({ nullable: true })
+  editedAt?: Date;
+
   @Field()
   hasReplies!: boolean;
 }

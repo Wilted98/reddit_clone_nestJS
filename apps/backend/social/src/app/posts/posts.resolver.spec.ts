@@ -10,6 +10,7 @@ describe('PostsResolver', () => {
     getPost: jest.Mock;
     listByAuthor: jest.Mock;
     deletePost: jest.Mock;
+    updatePost: jest.Mock;
   };
   const user = {
     id: 'user-1',
@@ -24,6 +25,7 @@ describe('PostsResolver', () => {
       getPost: jest.fn(),
       listByAuthor: jest.fn(),
       deletePost: jest.fn(),
+      updatePost: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [PostsResolver, { provide: PostsService, useValue: service }],
@@ -58,7 +60,11 @@ describe('PostsResolver', () => {
     const page = { items: [], hasMore: false, nextCursor: null };
     service.listByAuthor.mockResolvedValue(page);
     await expect(
-      resolver.listByAuthor('author-1', { cursor: 'last-id', limit: 10 }),
+      resolver.listByAuthor({
+        authorId: 'author-1',
+        cursor: 'last-id',
+        limit: 10,
+      }),
     ).resolves.toBe(page);
     expect(service.listByAuthor).toHaveBeenCalledWith(
       'author-1',
@@ -72,5 +78,13 @@ describe('PostsResolver', () => {
     service.deletePost.mockResolvedValue(deleted);
     await expect(resolver.deletePost('post-1', user)).resolves.toBe(deleted);
     expect(service.deletePost).toHaveBeenCalledWith('post-1', user.id);
+  });
+
+  it('edits with the authenticated author ID, not a client identity', async () => {
+    const input = { id: 'post-1', body: 'Edited body' };
+    const updated = { id: 'post-1', editedAt: new Date() };
+    service.updatePost.mockResolvedValue(updated);
+    await expect(resolver.updatePost(input, user)).resolves.toBe(updated);
+    expect(service.updatePost).toHaveBeenCalledWith(input, user.id);
   });
 });

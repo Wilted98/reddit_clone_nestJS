@@ -101,6 +101,30 @@ The new migration adds the sibling-order index; Nx E2E does not migrate the
 database automatically. The removed whole-tree builder is no longer part of
 the retrieval path.
 
+### Profile activity and content editing
+
+Post/comment service specs verify author-scoped activity, bounded lookahead,
+creation-time/ID keyset boundaries, and continuation after a soft-deleted
+cursor. Editing specs verify ownership, missing/deleted targets, permitted
+fields, preserved post type, and conditional writes against deletion races.
+DTO specs cover inherited activity defaults/limits and edit ID, text, URL,
+null, and whitelist rules. Resolver specs verify public reads and guarded
+edits receive the authenticated identity rather than a client-supplied author.
+
+[`profile-activity-editing.spec.ts`](../apps/backend/social-e2e/src/social/profile-activity-editing.spec.ts)
+joins the real public auth profile with social post/comment pages. It covers
+roots/replies across posts, unknown authors, deleted anchors, live comments
+on deleted posts, validation, anonymous/forged/other-user rejection, text/link
+and comment edits, immutable fields, preserved descendants, and edits after
+leaving a community. Real vote/counter changes prove `editedAt` tracks only
+content edits; concurrent edit/delete tests prove cleared content cannot be
+restored. These cross-service activity workflows belong to `social-e2e`;
+auth's account/session/privacy tests remain in `auth-e2e`.
+
+Apply `20261004195514_add_profile_activity_content_edits` before E2E. It adds
+nullable edit timestamps and the author-comment activity index; test/build
+targets regenerate Prisma clients but do not migrate the database.
+
 ### [`users.service.spec.ts`](../apps/backend/auth/src/app/users/users.service.spec.ts)
 
 Mocks `PrismaService` entirely — the test never touches a real database.

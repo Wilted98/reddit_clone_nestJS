@@ -19,6 +19,7 @@ describe('PostsService', () => {
         findUnique: jest.Mock;
         findMany: jest.Mock;
         update: jest.Mock;
+        updateManyAndReturn: jest.Mock;
       };
     };
   };
@@ -42,6 +43,7 @@ describe('PostsService', () => {
     title: input.title,
     body: input.body,
     url: null,
+    createdAt: new Date('2026-10-04T12:00:00.000Z'),
     deletedAt: null,
   };
 
@@ -53,6 +55,7 @@ describe('PostsService', () => {
           findUnique: jest.fn().mockResolvedValue(post),
           findMany: jest.fn(),
           update: jest.fn(),
+          updateManyAndReturn: jest.fn(),
         },
       },
     };
@@ -150,30 +153,205 @@ describe('PostsService', () => {
     );
   });
 
-  it('lists only live posts by the requested author with a deterministic cursor', async () => {
-    const rows = [post, { ...post, id: 'post-2' }, { ...post, id: 'post-3' }];
-    prisma.client.post.findMany.mockResolvedValue(rows);
-    await expect(
-      service.listByAuthor(author.id, 'previous', 2),
-    ).resolves.toEqual({
-      items: rows.slice(0, 2),
-      nextCursor: 'post-2',
-      hasMore: true,
-    });
-    expect(prisma.client.post.findMany).toHaveBeenCalledWith({
-      take: 3,
-      skip: 1,
-      cursor: { id: 'previous' },
-      where: { authorId: author.id, deletedAt: null },
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-    });
-  });
+  it.each([null, new Date()])(
+    'pages live posts after an active or deleted anchor (%j)',
+    async (deletedAt) => {
+      prisma.client.post.findUnique.mockResolvedValue({
+        ...post,
+        id: 'previous',
+        deletedAt,
+      });
+      const rows = [post, { ...post, id: 'post-2' }, { ...post, id: 'post-3' }];
+      prisma.client.post.findMany.mockResolvedValue(rows);
+      await expect(
+        service.listByAuthor(author.id, 'previous', 2),
+      ).resolves.toEqual({
+        items: rows.slice(0, 2),
+        nextCursor: 'post-2',
+        hasMore: true,
+      });
+      expect(prisma.client.post.findMany).toHaveBeenCalledWith({
+        take: 3,
+        where: {
+          authorId: author.id,
+          deletedAt: null,
+          OR: [
+            { createdAt: { lt: post.createdAt } },
+            { createdAt: post.createdAt, id: { gt: 'previous' } },
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      });
+    },
+  );
 
   it('returns an empty terminal author page', async () => {
     prisma.client.post.findMany.mockResolvedValue([]);
     await expect(
       service.listByAuthor(author.id, undefined, 25),
     ).resolves.toEqual({ items: [], nextCursor: null, hasMore: false });
+  });
+
+  it.each([null, { authorId: 'other-author' }])(
+    'rejects missing or foreign author cursors',
+    async (row) => {
+      prisma.client.post.findUnique.mockResolvedValue(row);
+      await expect(
+        service.listByAuthor(author.id, 'cursor', 25),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.client.post.findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([0, 101, 1.5, NaN])(
+    'bounds direct author-page calls with limit %j',
+    async (limit) => {
+      await expect(
+        service.listByAuthor(author.id, undefined, limit),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.client.post.findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it('atomically patches only text content and edit metadata without requiring membership', async () => {
+    const updated = {
+      ...post,
+      title: 'Edited title',
+      body: 'Edited body',
+      editedAt: new Date(),
+    };
+    prisma.client.post.updateManyAndReturn.mockResolvedValue([updated]);
+    await expect(
+      service.updatePost(
+        { id: post.id, title: updated.title, body: updated.body },
+        author.id,
+      ),
+    ).resolves.toBe(updated);
+    expect(prisma.client.post.updateManyAndReturn).toHaveBeenCalledWith({
+      where: { id: post.id, authorId: author.id, deletedAt: null },
+      data: {
+        title: updated.title,
+        body: updated.body,
+        editedAt: expect.any(Date),
+      },
+    });
+    expect(communities.assertMember).not.toHaveBeenCalled();
+  });
+
+  it('updates a link URL while preserving text/link type', async () => {
+    const link = { ...post, body: null, url: 'https://example.com/original' };
+    const updated = {
+      ...link,
+      url: 'https://example.com/edited',
+      editedAt: new Date(),
+    };
+    prisma.client.post.findUnique.mockResolvedValue(link);
+    prisma.client.post.updateManyAndReturn.mockResolvedValue([updated]);
+    await expect(
+      service.updatePost({ id: post.id, url: updated.url }, author.id),
+    ).resolves.toBe(updated);
+    expect(
+      prisma.client.post.updateManyAndReturn.mock.calls[0][0].data,
+    ).toEqual({ url: updated.url, editedAt: expect.any(Date) });
+  });
+
+  it('ignores undeclared server-owned fields even in a direct service call', async () => {
+    prisma.client.post.updateManyAndReturn.mockResolvedValue([
+      { ...post, editedAt: new Date() },
+    ]);
+    await service.updatePost(
+      {
+        id: post.id,
+        title: 'Edited title',
+        authorId: 'victim',
+        communityId: 'other',
+        score: 99,
+        commentCount: 99,
+        editedAt: 'forged',
+      } as unknown as Parameters<PostsService['updatePost']>[0],
+      author.id,
+    );
+    expect(
+      prisma.client.post.updateManyAndReturn.mock.calls[0][0].data,
+    ).toEqual({ title: 'Edited title', editedAt: expect.any(Date) });
+  });
+
+  it.each([{ id: post.id }, { id: post.id, url: 'https://example.com' }])(
+    'rejects empty edits and type changes %j',
+    async (data) => {
+      await expect(service.updatePost(data, author.id)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.client.post.updateManyAndReturn).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a body on an existing link post', async () => {
+    prisma.client.post.findUnique.mockResolvedValue({
+      ...post,
+      body: null,
+      url: 'https://example.com',
+    });
+    await expect(
+      service.updatePost({ id: post.id, body: 'Text' }, author.id),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.client.post.updateManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it.each(['title', 'body', 'url'])(
+    'rejects null %s in direct service calls',
+    async (field) => {
+      const input = { id: post.id, [field]: null } as unknown as Parameters<
+        PostsService['updatePost']
+      >[0];
+      await expect(service.updatePost(input, author.id)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.client.post.updateManyAndReturn).not.toHaveBeenCalled();
+    },
+  );
+
+  it("forbids editing another author's post", async () => {
+    await expect(
+      service.updatePost({ id: post.id, title: 'Edited title' }, 'outsider'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.client.post.updateManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing edit target', async () => {
+    prisma.client.post.findUnique.mockResolvedValue(null);
+    await expect(
+      service.updatePost({ id: 'missing', title: 'Edited title' }, author.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.client.post.updateManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it('rejects a deleted post before attempting to update it', async () => {
+    prisma.client.post.findUnique.mockResolvedValue({
+      ...post,
+      deletedAt: new Date(),
+      body: null,
+    });
+    await expect(
+      service.updatePost({ id: post.id, title: 'Edited title' }, author.id),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.client.post.updateManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it('rejects a post deleted between lookup and the conditional write', async () => {
+    prisma.client.post.updateManyAndReturn.mockResolvedValue([]);
+    await expect(
+      service.updatePost({ id: post.id, body: 'Edited body' }, author.id),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.client.post.update).not.toHaveBeenCalled();
+  });
+
+  it('propagates unexpected edit failures', async () => {
+    const error = new Error('Database unavailable');
+    prisma.client.post.updateManyAndReturn.mockRejectedValue(error);
+    await expect(
+      service.updatePost({ id: post.id, title: 'Edited title' }, author.id),
+    ).rejects.toBe(error);
   });
 
   it("soft-deletes the author's post and clears its content", async () => {

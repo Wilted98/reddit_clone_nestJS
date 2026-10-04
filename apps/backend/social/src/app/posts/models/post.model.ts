@@ -29,6 +29,9 @@ export class Post extends AbstractModel {
 
   @Field({ nullable: true })
   deletedAt?: Date;
+
+  @Field({ nullable: true })
+  editedAt?: Date;
 }
 
 @ObjectType()
