@@ -52,6 +52,15 @@ export class PostsService {
     return post;
   }
 
+  async getCommunitySlug(communityId: string) {
+    const community = await this.prismaService.client.community.findUnique({
+      where: { id: communityId },
+      select: { slug: true },
+    });
+    if (!community) throw new NotFoundException('Community not found');
+    return community.slug;
+  }
+
   async listByAuthor(
     authorId: string,
     cursor: string | undefined,

@@ -8,6 +8,7 @@ describe('PostsResolver', () => {
   let service: {
     createPost: jest.Mock;
     getPost: jest.Mock;
+    getCommunitySlug: jest.Mock;
     listByAuthor: jest.Mock;
     deletePost: jest.Mock;
     updatePost: jest.Mock;
@@ -23,6 +24,7 @@ describe('PostsResolver', () => {
     service = {
       createPost: jest.fn(),
       getPost: jest.fn(),
+      getCommunitySlug: jest.fn(),
       listByAuthor: jest.fn(),
       deletePost: jest.fn(),
       updatePost: jest.fn(),
@@ -54,6 +56,16 @@ describe('PostsResolver', () => {
     service.getPost.mockResolvedValue(found);
     await expect(resolver.getPost('post-1')).resolves.toBe(found);
     expect(service.getPost).toHaveBeenCalledWith('post-1');
+  });
+
+  it('resolves the community slug for any public post response', async () => {
+    service.getCommunitySlug.mockResolvedValue('craft');
+    await expect(
+      resolver.communitySlug({ communityId: 'community-1' } as Parameters<
+        typeof resolver.communitySlug
+      >[0]),
+    ).resolves.toBe('craft');
+    expect(service.getCommunitySlug).toHaveBeenCalledWith('community-1');
   });
 
   it('forwards author and pagination arguments', async () => {

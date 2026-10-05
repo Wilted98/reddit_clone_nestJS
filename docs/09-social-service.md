@@ -42,6 +42,7 @@ an ID tie-breaker. The moderator role is stored but has no moderation operations
 | `health`                                                  | Public                   | `"ok"`                                   |
 | `community(slug)`                                         | Public                   | One community, or a not-found error      |
 | `communities(cursor, limit)`                              | Public                   | `items`, `nextCursor`, `hasMore`         |
+| `myCommunities(cursor, limit)`                            | Authenticated            | Only the caller's joined communities     |
 | `createCommunity(createCommunityInput)`                   | Authenticated            | Community with an owner membership       |
 | `joinCommunity(slug)`                                     | Authenticated            | Community after joining                  |
 | `leaveCommunity(slug)`                                    | Authenticated, non-owner | Community after leaving                  |
@@ -71,7 +72,19 @@ The default page size is 25, with a supported range of 1-100. Subsequent pages
 exclude the cursor row. Pages are not a snapshot: membership changes between
 requests can change a community's ranking.
 
+`myCommunities` derives identity from the auth cookie, never a caller-supplied
+user ID. It orders joined communities by ID ascending, overfetches one row,
+and uses an exclusive ID range cursor. Limits use the same 1-100 validation.
+Every page filters by the caller's membership; owners are included because
+creation creates their membership. Leaving removes a community from this
+list. A cursor still works after its membership is removed. This query does
+not expose the caller's role in arbitrary communities.
+
 ## Posts and comments
+
+All GraphQL `Post` responses expose public `communitySlug` alongside
+`communityId`. A field resolver reads the associated community's slug so
+feed, detail, activity, and mutation responses use the same source of truth.
 
 `CreatePostInput` accepts `communitySlug`, a title of 3-300 characters, and
 exactly one of `body` (1-40,000 characters) or a valid `url`. The authenticated

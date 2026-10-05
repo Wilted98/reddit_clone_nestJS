@@ -228,4 +228,61 @@ describe('Communities through auth and social', () => {
       400,
     );
   });
+
+  it('keeps subscriptions private, pages only caller memberships, and reflects leave', async () => {
+    const subscriber = await registerAndLogin();
+    const joined = [await createCommunity(), await createCommunity()];
+    await createCommunity();
+    for (const community of joined) {
+      expectData(
+        await gql(
+          memberQuery('joinCommunity'),
+          { slug: community.slug },
+          subscriber.cookie,
+        ),
+      );
+    }
+    const query =
+      'query($cursor: String, $limit: Int!) { myCommunities(cursor: $cursor, limit: $limit) { items { id slug } nextCursor hasMore } }';
+    const anonymous = await gql(query, { limit: 1 });
+    expect(anonymous.errors?.[0].extensions?.code).toBe('FORBIDDEN');
+    const first = expectData(
+      await gql<{ myCommunities: CommunityPage }>(
+        query,
+        { limit: 1 },
+        subscriber.cookie,
+      ),
+    ).myCommunities;
+    expect(first.items).toHaveLength(1);
+    expect(first.hasMore).toBe(true);
+    const second = expectData(
+      await gql<{ myCommunities: CommunityPage }>(
+        query,
+        { cursor: first.nextCursor, limit: 1 },
+        subscriber.cookie,
+      ),
+    ).myCommunities;
+    expect(second.items).toHaveLength(1);
+    expect(second.hasMore).toBe(false);
+    expect(
+      new Set([...first.items, ...second.items].map((item) => item.id)),
+    ).toEqual(new Set(joined.map((item) => item.id)));
+    expectData(
+      await gql(
+        memberQuery('leaveCommunity'),
+        { slug: first.items[0].slug },
+        subscriber.cookie,
+      ),
+    );
+    const afterLeave = expectData(
+      await gql<{ myCommunities: CommunityPage }>(
+        query,
+        { limit: 20 },
+        subscriber.cookie,
+      ),
+    ).myCommunities;
+    expect(afterLeave.items).toEqual(second.items);
+    const invalid = await gql(query, { limit: 0 }, subscriber.cookie);
+    expect(invalid.errors?.[0].extensions?.originalError?.statusCode).toBe(400);
+  });
 });

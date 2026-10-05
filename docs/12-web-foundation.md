@@ -8,7 +8,9 @@ Home (`/`), the community directory (`/communities`), and community feeds
 (`/r/[slug]`) are public browsing routes. Registration, login, and the private
 account view live at `/account`. See
 [feeds and communities](13-web-feeds-and-communities.md) for their query and
-pagination contracts.
+pagination contracts. Public discussions live at `/posts/[id]`; authenticated
+post composition lives at `/submit`. Their write, comment, and voting contracts
+are in [web discussions](14-web-posts-discussions-and-voting.md).
 
 ## Stack
 
@@ -172,8 +174,11 @@ npx nx run web-e2e:e2e-live
 
 The live auth test creates one unique local test account, verifies the real
 httpOnly cookie through registration/login/reload/logout, and leaves that test
-record in the database. The live social test reads existing data without
-changing social records. Stop unrelated servers on port 4200 in CI; local
+record in the database. The live social browsing test reads existing data
+without changing social records. The live discussion test creates an isolated
+account/community, publishes a post/comment, verifies votes and reload, and
+soft-deletes its post/comment afterward. Its account, community, membership,
+and soft-deleted rows remain as test fixtures. Stop unrelated servers on port 4200 in CI; local
 Playwright runs reuse an existing development server there.
 
 When no server is running, Playwright starts Next directly and shuts it down

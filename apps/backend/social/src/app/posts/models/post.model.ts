@@ -7,6 +7,9 @@ export class Post extends AbstractModel {
   communityId!: string;
 
   @Field()
+  communitySlug!: string;
+
+  @Field()
   authorId!: string;
 
   @Field()

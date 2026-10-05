@@ -1,5 +1,23 @@
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 
+export function socialActionError(error: unknown) {
+  return isUnauthenticated(error)
+    ? 'Your session expired. Sign in to continue.'
+    : errorMessage(error);
+}
+
+export function isForbidden(error: unknown) {
+  return (
+    CombinedGraphQLErrors.is(error) &&
+    error.errors.some(
+      (item) =>
+        item.extensions?.code === 'FORBIDDEN' ||
+        (item.extensions?.originalError as { statusCode?: number } | undefined)
+          ?.statusCode === 403,
+    )
+  );
+}
+
 export function isNotFound(error: unknown) {
   return (
     CombinedGraphQLErrors.is(error) &&

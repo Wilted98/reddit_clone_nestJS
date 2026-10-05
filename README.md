@@ -5,9 +5,11 @@ internal gRPC authentication; `social` owns communities, memberships, posts,
 paginated comment threads, profile activity, author-only content editing,
 voting, and HOT/NEW/TOP feeds. Each service has its own
 PostgreSQL database and Prisma client. A Next.js web app now implements the
-cookie-based account sessions, public feeds with sorting/pagination, and
-community browsing. Discussion, voting, profile/editing screens, and moderation
-workflows are not implemented yet.
+cookie-based account sessions, public feeds with sorting/pagination,
+community browsing, text/link posting, bounded discussions/replies, and voting.
+Feed cards include community labels and voting; the sidebar separates recent
+community visits from authenticated subscriptions.
+Profile/editing screens and moderation workflows are not implemented yet.
 
 ## Local setup
 
@@ -72,7 +74,8 @@ npx nx dev web
 
 Open `http://localhost:4200`; both backend CORS templates already allow this
 origin. Home is the public feed; `/communities` lists communities,
-`/r/[slug]` opens a community feed, and `/account` handles account sessions.
+`/r/[slug]` opens a community feed, `/posts/[id]` opens its discussion,
+`/submit` creates posts, and `/account` handles account sessions.
 The frontend uses the existing httpOnly auth cookie, not a separate
 auth system or localStorage tokens. Endpoint overrides are documented in
 `apps/frontend/web/.env.example`; put local values in `.env.local`.
@@ -86,9 +89,12 @@ npx nx e2e web-e2e
 Codegen/build/unit tests use committed schema snapshots and do not need live
 APIs. Refresh them after backend schema changes with `nx run web:schema`,
 then `nx run web:codegen`. Default browser tests mock auth and social; optional
-`nx run web-e2e:e2e-live` verifies real auth cookies and public social browsing
+`nx run web-e2e:e2e-live` verifies real auth cookies, public social browsing,
+and an isolated post/comment/vote workflow
 against the local APIs/databases. See [web setup](docs/12-web-foundation.md)
 and [feed/community behavior](docs/13-web-feeds-and-communities.md).
+Posting, bounded replies, and vote-state handling are documented in
+[web discussions](docs/14-web-posts-discussions-and-voting.md).
 
 ## Verification
 

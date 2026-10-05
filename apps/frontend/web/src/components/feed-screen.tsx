@@ -8,6 +8,7 @@ import {
   RefreshCw,
   TrendingUp,
   UsersRound,
+  Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -40,6 +41,9 @@ import { CommunityBadge } from './community-badge';
 import { PostCard } from './post-card';
 import { QueryError, QueryLoading } from './query-feedback';
 import { SocialRail } from './social-rail';
+import { VoteGroup } from './voting';
+import { useSession } from './session-provider';
+import { recentKey, visitCommunity } from '../lib/recent-communities';
 
 const PAGE_LOADING_MIN_MS = 700;
 
@@ -88,11 +92,17 @@ function CommunityFeed({
   slug: string;
   filters: FeedFilters;
 }) {
+  const { account, loading: sessionLoading } = useSession();
   const { data, loading, error, refetch } = useQuery(CommunityDetailsDocument, {
     variables: { slug },
     fetchPolicy: 'no-cache',
     ssr: false,
   });
+  useEffect(() => {
+    if (data?.community && !sessionLoading) {
+      visitCommunity(recentKey(account?.id), data.community);
+    }
+  }, [data?.community, sessionLoading, account?.id]);
   if (loading) return <QueryLoading label="Loading community..." />;
   if (error)
     return isNotFound(error) ? (
@@ -147,6 +157,13 @@ function CommunityHeader({
           {community.memberCount === 1 ? 'member' : 'members'}
         </span>
         <span>Created {formatDate(community.createdAt)}</span>
+        <Link
+          className="text-button"
+          href={`/submit?${new URLSearchParams({ community: community.slug })}`}
+        >
+          <Plus size={17} />
+          Create post
+        </Link>
       </div>
     </header>
   );
@@ -358,14 +375,22 @@ function FeedList({ filters, slug }: { filters: FeedFilters; slug?: string }) {
               </Link>
             </div>
           ) : (
-            <div className="post-list" aria-busy={pending}>
-              {(pendingCount === null
+            <VoteGroup
+              kind="post"
+              ids={(pendingCount === null
                 ? data.feed.items
                 : data.feed.items.slice(0, pendingCount)
-              ).map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
+              ).map((post) => post.id)}
+            >
+              <div className="post-list" aria-busy={pending}>
+                {(pendingCount === null
+                  ? data.feed.items
+                  : data.feed.items.slice(0, pendingCount)
+                ).map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+            </VoteGroup>
           )}
           {pageError !== null && !pending && (
             <QueryError

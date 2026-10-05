@@ -21,6 +21,26 @@ async function mockAuth(
   let signedIn = options.restored ?? false;
   let loginCalls = 0;
   const operations: string[] = [];
+  await page.route('http://localhost:3001/graphql', async (route) => {
+    const headers = {
+      'Access-Control-Allow-Origin': 'http://localhost:4200',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'content-type',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    };
+    if (route.request().method() === 'OPTIONS')
+      return route.fulfill({ status: 204, headers });
+    await route.fulfill({
+      status: 200,
+      headers,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          myCommunities: { items: [], hasMore: false, nextCursor: null },
+        },
+      }),
+    });
+  });
   await page.route('http://localhost:3000/graphql', async (route) => {
     const request = route.request();
     const headers = {

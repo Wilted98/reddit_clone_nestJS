@@ -31,6 +31,15 @@ export class CommunitiesResolver {
   }
 
   @UseGuards(GqlAuthGuard)
+  @Query(() => CommunityPage)
+  async myCommunities(
+    @Args() { cursor, limit }: PaginationArgs,
+    @CurrentUser() user: User,
+  ) {
+    return this.communitiesService.listMine(user.id, cursor, limit);
+  }
+
+  @UseGuards(GqlAuthGuard)
   @Mutation(() => Community)
   async joinCommunity(@Args('slug') slug: string, @CurrentUser() user: User) {
     return this.communitiesService.join(slug, user.id);

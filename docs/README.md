@@ -30,3 +30,7 @@ schema snapshots, and browser tests.
 [`13-web-feeds-and-communities.md`](13-web-feeds-and-communities.md) documents
 public web routes, feed filters, cursor/offset pagination, content rendering,
 error states, API boundaries, and browser verification.
+
+[`14-web-posts-discussions-and-voting.md`](14-web-posts-discussions-and-voting.md)
+documents text/link posting, membership-gated publishing, incremental comment
+threads, private vote restoration, mutation safety, and browser verification.

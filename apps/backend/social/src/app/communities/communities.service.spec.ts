@@ -198,6 +198,42 @@ describe('CommunitiesService', () => {
     });
   });
 
+  describe('listMine', () => {
+    it('filters every page by the authenticated membership and overfetches one', async () => {
+      const rows = ['a', 'b', 'c'].map((id) => ({ ...community, id }));
+      prisma.client.community.findMany.mockResolvedValue(rows);
+      await expect(
+        service.listMine('member-1', 'previous', 2),
+      ).resolves.toEqual({
+        items: rows.slice(0, 2),
+        hasMore: true,
+        nextCursor: 'b',
+      });
+      expect(prisma.client.community.findMany).toHaveBeenCalledWith({
+        take: 3,
+        where: {
+          memberships: { some: { userId: 'member-1' } },
+          id: { gt: 'previous' },
+        },
+        orderBy: { id: 'asc' },
+      });
+    });
+
+    it('returns an empty terminal subscription list', async () => {
+      prisma.client.community.findMany.mockResolvedValue([]);
+      await expect(
+        service.listMine('outsider', undefined, 20),
+      ).resolves.toEqual({
+        items: [],
+        hasMore: false,
+        nextCursor: null,
+      });
+      expect(prisma.client.community.findMany.mock.calls[0][0].where).toEqual({
+        memberships: { some: { userId: 'outsider' } },
+      });
+    });
+  });
+
   describe('join', () => {
     it('increments the counter only when inserting a membership', async () => {
       const updated = { ...community, memberCount: 2 };

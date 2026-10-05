@@ -9,6 +9,7 @@ import {
 
 interface Post {
   id: string;
+  communitySlug: string;
   authorId: string;
   authorUsername: string;
   body: string | null;
@@ -29,7 +30,7 @@ interface Comment {
 }
 
 const postFields =
-  'id authorId authorUsername body url score commentCount deletedAt';
+  'id communitySlug authorId authorUsername body url score commentCount deletedAt';
 const commentFields =
   'id parentId authorId authorUsername body deletedAt hasReplies';
 const createPostQuery = `mutation ($input: CreatePostInput!) { createPost(createPostInput: $input) { ${postFields} } }`;
@@ -127,6 +128,7 @@ describe('Posts and comments through auth and social', () => {
 
   it('creates member-owned text and link posts with identity supplied by auth', async () => {
     const text = await createPost();
+    expect(text.communitySlug).toBe(communitySlug);
     const link = await createPost({
       body: undefined,
       url: 'https://example.com/article',

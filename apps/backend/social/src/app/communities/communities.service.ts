@@ -55,6 +55,18 @@ export class CommunitiesService {
     return toPage(rows, limit);
   }
 
+  async listMine(userId: string, cursor: string | undefined, limit: number) {
+    const rows = await this.prismaService.client.community.findMany({
+      take: limit + 1,
+      where: {
+        memberships: { some: { userId } },
+        ...(cursor && { id: { gt: cursor } }),
+      },
+      orderBy: { id: 'asc' },
+    });
+    return toPage(rows, limit);
+  }
+
   async join(slug: string, userId: string) {
     const community = await this.getCommunityBySlug(slug);
 

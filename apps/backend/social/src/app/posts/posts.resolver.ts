@@ -1,5 +1,12 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { CurrentUser, GqlAuthGuard } from '@roorin/nestjs';
 import { User } from '@roorin/proto';
 import { CreatePostInput } from './dto/create-post.input';
@@ -11,6 +18,11 @@ import { PostsService } from './posts.service';
 @Resolver(() => Post)
 export class PostsResolver {
   constructor(private readonly postsService: PostsService) {}
+
+  @ResolveField(() => String)
+  communitySlug(@Parent() post: Post) {
+    return this.postsService.getCommunitySlug(post.communityId);
+  }
 
   @UseGuards(GqlAuthGuard)
   @Mutation(() => Post)

@@ -1,10 +1,11 @@
 # 11 - Frontend Handoff
 
 The core discussion APIs are implemented. The Next.js web app supports account
-sessions and public feed/community browsing. Discussion, voting, and profile
-screens remain frontend work. See
+sessions, public feed/community browsing, post composition, bounded discussions,
+and voting. Profile/editing screens remain frontend work. See
 [web foundation](12-web-foundation.md) for setup and
-[web social browsing](13-web-feeds-and-communities.md) for pagination and rendering.
+[web social browsing](13-web-feeds-and-communities.md) for pagination and rendering,
+and [web discussions](14-web-posts-discussions-and-voting.md) for write workflows.
 This is an API handoff, not a declaration
 that membership/settings, moderation, recovery, or public-deployment work
 is complete. Keep frontend branches to one or two workflows at a time.
@@ -50,9 +51,10 @@ server-side; see [authentication](04-authentication.md).
 Use public `User` fields for profile routes, never cached private `Account`
 objects containing email. See [the auth API reference](07-graphql-api-reference.md)
 and [social operations](09-social-service.md#graphql-operations) for exact
-inputs and examples. The current API does not expose caller membership/role
-context or community settings updates. Do not infer joined state from
-`memberCount`; complete that backend batch for persistent join/role-aware UI.
+inputs and examples. `myCommunities` provides the authenticated user's joined
+community list for the sidebar. Arbitrary-community caller role context and
+community settings updates are still unavailable. Do not infer joined state
+from `memberCount` or recent visits; role-aware controls require that backend work.
 
 ## Pagination and edit state
 
@@ -102,7 +104,7 @@ may be HTTP 400 and have a different shape, so keep a generic fallback.
 
 1. Foundation + auth/session screens (implemented).
 2. Feed + community browsing (implemented).
-3. Post composition/discussions + voting.
+3. Post composition/discussions + voting (implemented).
 4. Public profile/activity + own profile/content editing.
 
 Membership context + community settings are the next backend batch and can

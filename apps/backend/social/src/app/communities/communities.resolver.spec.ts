@@ -9,6 +9,7 @@ describe('CommunitiesResolver', () => {
     createCommunity: jest.Mock;
     getCommunityBySlug: jest.Mock;
     listCommunities: jest.Mock;
+    listMine: jest.Mock;
     join: jest.Mock;
     leave: jest.Mock;
   };
@@ -24,6 +25,7 @@ describe('CommunitiesResolver', () => {
       createCommunity: jest.fn(),
       getCommunityBySlug: jest.fn(),
       listCommunities: jest.fn(),
+      listMine: jest.fn(),
       join: jest.fn(),
       leave: jest.fn(),
     };
@@ -74,6 +76,18 @@ describe('CommunitiesResolver', () => {
       community,
     );
     expect(service.join).toHaveBeenCalledWith('romania', user.id);
+  });
+
+  it('lists only the caller memberships with bounded pagination', async () => {
+    const page = { items: [], hasMore: false, nextCursor: null };
+    service.listMine.mockResolvedValue(page);
+    await expect(
+      resolver.myCommunities({ cursor: 'last', limit: 20 }, user),
+    ).resolves.toBe(page);
+    expect(service.listMine).toHaveBeenCalledWith(user.id, 'last', 20);
+    expect(Reflect.getMetadata('__guards__', resolver.myCommunities)).toContain(
+      GqlAuthGuard,
+    );
   });
 
   it('leaves as the authenticated user', async () => {
