@@ -14,6 +14,22 @@ display a desktop discovery rail with up to five public communities, ordered
 by the backend's member-count/ID ordering. This is a popular-community list,
 not a list of the caller's memberships.
 
+The desktop sidebar is sticky and bounded to the viewport height, with its
+own overflow scrolling. On mobile it becomes normal page content and its
+community shortcuts use an expandable section. Recently visited shows the
+last three distinct, successfully loaded community pages, newest first.
+Only slug/name pairs are stored under an account-specific localStorage key;
+guest history is separate. Invalid storage is ignored, and blocked storage
+falls back to memory for that browser session. Missing communities are not
+recorded. History is a browser convenience, not membership data.
+
+Your communities reads authenticated `myCommunities` pages of 20, with
+no-cache requests, deduplication, and explicit more/retry controls. It includes
+owned communities, is scoped to the account ID, and clears from the UI on
+logout. Guests never issue this private query. Successful composer joins
+refresh the active list. No popular-community data is used as a subscription
+fallback.
+
 Run the app with `npx nx dev web` and open `http://localhost:4200`.
 See [web setup](12-web-foundation.md) for environment variables, build/start
 commands, cookie/CORS settings, and schema generation.
@@ -85,9 +101,17 @@ fetches fresh data rather than reusing an accumulated list from another view.
 ## Content rendering and errors
 
 Post cards display public author usernames, creation dates, optional edit
-markers, text or link content, and read-only score/comment totals. Dates use
+markers, a linked `r/communitySlug`, text or link content, and vote/comment pills. Dates use
 UTC; counts use compact formatting while accessible labels retain full totals.
 Long bodies remain available through an expandable full-text section.
+
+Signed-in users can vote directly from global or community feeds. Visible
+post IDs are looked up together through `myPostVotes`; vote mutations follow
+the same confirmed-state rules as discussions. Guests get sign-in links.
+The title's native link extends over the card surface, preserving keyboard
+navigation and modified-click/new-tab behavior. Vote controls, community
+links, external links, comment pills, and expanded text stay independent
+targets. Comment pills link directly to the discussion's comments anchor.
 
 User text is rendered as text, not HTML. External anchors accept only parsed
 absolute HTTP/S URLs without embedded credentials, and use
@@ -106,14 +130,13 @@ remain retryable and do not expose internal server details.
 
 ## API boundaries
 
-The public `Post` model exposes `communityId`, not community name/slug fields.
-Global cards therefore do not invent community labels or make unbounded
-community lookup requests. A scoped feed identifies its community in the
-page header using `community(slug)`.
-
-The API does not expose caller membership/role context. No joined/leave state
-is inferred from member counts or stored locally as if it were authoritative.
-Score/comment totals are not interactive voting or discussion controls.
+The public `Post` model supplies `communitySlug`; cards do not infer it from
+IDs or the popular directory. Private `myCommunities` supplies the sidebar
+subscription list, but arbitrary-community caller role context is still
+unavailable. No joined/leave state is inferred from counts or visit history.
+Feed cards open [discussions](14-web-posts-discussions-and-voting.md), where
+comment/reply composition and authenticated voting are available. Community headers open
+the post composer with the community preselected.
 See [social contracts](09-social-service.md) for the backend operations and
 permission rules.
 

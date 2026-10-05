@@ -61,10 +61,11 @@ permission rules, deployment, and concurrent-edit limitations.
 ## Frontend handoff
 
 This completes the core discussion API milestone, not every backend feature
-or production-hardening task. The web app supports account sessions and
-[feed/community browsing](13-web-feeds-and-communities.md);
-see [the web technical reference](12-web-foundation.md). Discussions/voting
-and profiles/editing remain frontend work.
+or production-hardening task. The web app supports account sessions,
+[feed/community browsing](13-web-feeds-and-communities.md),
+and [posting/discussions/voting](14-web-posts-discussions-and-voting.md);
+see [the web technical reference](12-web-foundation.md). Profiles/editing
+remain frontend work.
 Keep the same one-or-two-feature workflow. [The frontend handoff](11-frontend-handoff.md)
 maps these screens to the current contracts and cookie/pagination rules.
 

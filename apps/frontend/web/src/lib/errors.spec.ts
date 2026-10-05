@@ -1,5 +1,11 @@
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
-import { errorMessage, isNotFound, isUnauthenticated } from './errors';
+import {
+  errorMessage,
+  isForbidden,
+  isNotFound,
+  isUnauthenticated,
+  socialActionError,
+} from './errors';
 
 function failure(
   statusCode: number,
@@ -16,6 +22,26 @@ function failure(
 }
 
 describe('GraphQL error handling', () => {
+  it('separates expired write sessions from bad login credentials and membership failures', () => {
+    expect(socialActionError(failure(401))).toBe(
+      'Your session expired. Sign in to continue.',
+    );
+    expect(
+      socialActionError(
+        failure(403, 'Join the community before posting in it.'),
+      ),
+    ).toContain('Join the community');
+    expect(isForbidden(failure(403))).toBe(true);
+    expect(
+      isForbidden(
+        new CombinedGraphQLErrors({
+          errors: [{ message: 'Forbidden', extensions: { code: 'FORBIDDEN' } }],
+        }),
+      ),
+    ).toBe(true);
+    expect(isForbidden(failure(404))).toBe(false);
+    expect(isForbidden(new Error('Offline'))).toBe(false);
+  });
   it('distinguishes a missing community from transport and server failures', () => {
     expect(isNotFound(failure(404))).toBe(true);
     expect(

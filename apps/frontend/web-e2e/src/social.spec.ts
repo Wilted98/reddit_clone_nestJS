@@ -43,6 +43,7 @@ function post(
     url: null,
     authorUsername: 'selene',
     communityId: 'craft',
+    communitySlug: 'craft',
     createdAt: '2026-10-05T10:00:00Z',
     editedAt: null,
     score: 311,
@@ -163,6 +164,10 @@ async function mockAPIs(
     if (!result || Object.keys(result).length === 0) {
       if (operation.operationName === 'BrowseFeed')
         result = { data: { feed: feedPage() } };
+      if (operation.operationName === 'OwnPostVotes')
+        result = { data: { myPostVotes: [] } };
+      if (operation.operationName === 'SubscribedCommunities')
+        result = { data: { myCommunities: communityPage([]) } };
       if (operation.operationName === 'BrowseCommunities')
         result = { data: { communities: communityPage() } };
       if (operation.operationName === 'CommunityDetails') {
@@ -944,15 +949,20 @@ test('renders safe links and plain user text with expandable long posts', async 
     '<img src=x onerror=alert(1)>',
   );
   await expect(page.getByTestId('post-unsafe').getByRole('img')).toHaveCount(0);
-  await expect(page.getByTestId('post-unsafe').getByRole('link')).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByTestId('post-unsafe').locator('.post-link'),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId('post-unsafe').locator('a[href^="javascript:"]'),
+  ).toHaveCount(0);
   await page.getByText('Read full post', { exact: true }).click();
   await expect(
     page.getByTestId('post-long').locator('details'),
   ).toHaveAttribute('open', '');
   await expect(
-    page.getByTestId('post-three').getByRole('link'),
+    page
+      .getByTestId('post-three')
+      .getByRole('link', { name: 'example.com', exact: true }),
   ).toHaveAttribute('rel', 'noopener noreferrer');
 });
 

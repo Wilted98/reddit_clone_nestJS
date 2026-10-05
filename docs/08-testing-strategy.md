@@ -32,8 +32,11 @@ feed filters/pagination, and safe content rendering.
 `nx e2e web-e2e` uses Playwright with mocked auth/social HTTP responses on
 desktop and mobile, including validation, throttling, retry safety, logout
 failures, social browsing, pagination, late responses, image loading, viewport
-bounds, and private HTML exclusion. Optional `nx run web-e2e:e2e-live` tests
-the real auth cookie flow and read-only social browsing against the local APIs.
+bounds, private HTML exclusion, post/comment writes, bounded reply expansion,
+and private vote restoration/toggling. Optional `nx run web-e2e:e2e-live` tests
+the real auth cookie flow, read-only social browsing, and an isolated
+post/comment/vote workflow against the local APIs. The latter soft-deletes its
+content afterward, but leaves its test account/community records.
 These do not replace `auth-e2e`/`social-e2e`; they verify browser workflows and
 rendering. See [web verification](12-web-foundation.md#verification).
 

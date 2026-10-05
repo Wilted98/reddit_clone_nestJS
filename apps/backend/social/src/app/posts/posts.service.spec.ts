@@ -14,6 +14,7 @@ describe('PostsService', () => {
   let service: PostsService;
   let prisma: {
     client: {
+      community: { findUnique: jest.Mock };
       post: {
         create: jest.Mock;
         findUnique: jest.Mock;
@@ -50,6 +51,7 @@ describe('PostsService', () => {
   beforeEach(async () => {
     prisma = {
       client: {
+        community: { findUnique: jest.fn() },
         post: {
           create: jest.fn(),
           findUnique: jest.fn().mockResolvedValue(post),
@@ -72,6 +74,24 @@ describe('PostsService', () => {
       .useValue({ canActivate: () => true })
       .compile();
     service = module.get(PostsService);
+  });
+
+  it('resolves only the public community slug, never its private memberships', async () => {
+    prisma.client.community.findUnique.mockResolvedValue({ slug: 'romania' });
+    await expect(service.getCommunitySlug('community-1')).resolves.toBe(
+      'romania',
+    );
+    expect(prisma.client.community.findUnique).toHaveBeenCalledWith({
+      where: { id: 'community-1' },
+      select: { slug: true },
+    });
+  });
+
+  it('does not invent a slug when the community is missing', async () => {
+    prisma.client.community.findUnique.mockResolvedValue(null);
+    await expect(service.getCommunitySlug('missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('creates a member-owned text post with authenticated identity', async () => {

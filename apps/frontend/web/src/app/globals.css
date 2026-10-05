@@ -65,6 +65,77 @@ button {
   flex-direction: column;
   padding: 32px 22px;
   border-right: 1px solid var(--line);
+  position: sticky;
+  top: 24px;
+  height: calc(100dvh - 48px);
+  align-self: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: white;
+}
+.sidebar > * {
+  flex-shrink: 0;
+}
+.sidebar-communities {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.sidebar-communities section {
+  padding-top: 22px;
+}
+.sidebar-communities h2 {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.shortcut-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.shortcut-list a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 800;
+}
+.shortcut-list a:hover {
+  color: #177982;
+}
+.shortcut-list a > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shortcut-list .community-badge {
+  width: 30px;
+  height: 30px;
+  font-size: 13px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+.shortcut-empty {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 8px 0;
+}
+.shortcut-empty a {
+  color: #177982;
+}
+.shortcut-toggle {
+  display: none !important;
+}
+.shortcut-retry,
+.shortcut-more {
+  margin-top: 8px;
+  font-size: 12px !important;
 }
 .brand {
   display: flex;
@@ -87,7 +158,11 @@ button {
 .side-nav {
   display: grid;
   gap: 12px;
-  margin-top: 46px;
+  margin-top: 24px;
+}
+.create-post-link {
+  margin-top: 28px;
+  width: 100%;
 }
 .nav-item {
   display: flex;
@@ -454,6 +529,10 @@ input[readonly] {
   padding: 48px;
 }
 @media (max-width: 1250px) {
+  .sidebar {
+    top: 16px;
+    height: calc(100dvh - 32px);
+  }
   .app-shell {
     margin: 16px;
     min-height: calc(100svh - 32px);
@@ -486,6 +565,23 @@ input[readonly] {
   .sidebar {
     padding: 18px 22px 0;
     border: 0;
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+  .shortcut-toggle {
+    display: flex !important;
+    margin-bottom: 18px;
+  }
+  .sidebar-communities {
+    display: none;
+    margin-top: 0;
+    padding-bottom: 18px;
+  }
+  .sidebar-communities.expanded {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
   }
   .brand {
     font-size: 26px;
@@ -676,6 +772,9 @@ select:focus-visible {
   margin: 0 0 14px;
   overflow-wrap: anywhere;
 }
+.post-card h2 a:hover {
+  color: #177982;
+}
 .post-body {
   margin: 0 0 18px;
   color: #536174;
@@ -720,18 +819,77 @@ select:focus-visible {
 }
 .post-stats {
   display: flex;
-  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   color: var(--muted);
   font-weight: 800;
   font-size: 13px;
 }
-.post-stats span {
+.post-stats > span,
+.post-stats > a {
   display: inline-flex;
   gap: 6px;
   align-items: center;
 }
-.post-stats span:first-child svg {
-  color: #d65842;
+.post-card-linked {
+  position: relative;
+}
+.post-discussion-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+}
+.post-card-linked:hover {
+  border-color: #c5d7d9;
+}
+.post-card-linked:focus-within {
+  border-color: #20a8b2;
+}
+.post-card-linked .post-meta a,
+.post-card-linked .vote-area,
+.post-card-linked .comment-pill,
+.post-card-linked .post-link,
+.post-card-linked .post-expanded {
+  position: relative;
+  z-index: 1;
+}
+.post-origin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.post-origin a {
+  color: #168995;
+  font-weight: 800;
+}
+.post-meta .post-origin time {
+  display: inline;
+}
+.comment-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 64px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 24px;
+  background: #eef1f2;
+  font-size: 14px;
+  color: #536174;
+  font-weight: 900;
+}
+.comment-pill svg {
+  fill: #8c98a6;
+  stroke: #8c98a6;
+}
+.comment-pill:hover {
+  background: #e0ebed;
+  color: #177982;
 }
 .community-badge {
   display: inline-grid;
@@ -884,6 +1042,226 @@ select:focus-visible {
   margin-bottom: 28px;
   padding-bottom: 28px;
   border-bottom: 1px solid #dce5e6;
+}
+.discussion-back {
+  margin-bottom: 24px;
+}
+.post-card h1 {
+  font-size: 28px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  margin: 0 0 18px;
+}
+.discussion-comments {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 24px;
+}
+.discussion-comments > h2 {
+  font-size: 20px;
+  margin: 0 0 20px;
+}
+.comment-form,
+.post-composer {
+  min-width: 0;
+}
+.comment-form {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 24px;
+}
+.comment-form > label {
+  font-size: 14px;
+  font-weight: 800;
+}
+textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 14px;
+  border: 1px solid #cbd6db;
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  outline-offset: 3px;
+}
+textarea:focus-visible {
+  outline: 3px solid var(--cyan);
+}
+textarea[aria-invalid='true'] {
+  border-color: #bc3c35;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.comment-item {
+  padding: 22px 0;
+  min-width: 0;
+  border-bottom: 1px solid var(--line);
+}
+.comment-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.comment-meta time {
+  color: var(--muted);
+}
+.comment-body {
+  font-size: 15px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 12px 0;
+}
+.comment-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.comment-replies {
+  margin: 18px 0 0 14px;
+  padding-left: 18px;
+  border-left: 2px solid #d9e9e9;
+}
+.comment-replies.flat-replies {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+.comment-replies[hidden] {
+  display: none;
+}
+.vote-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 120px;
+  height: 40px;
+  padding: 0 6px;
+  border-radius: 24px;
+  background: #eef1f2;
+}
+.vote-controls .icon-button {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+.vote-controls > span {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.vote-controls .vote-up {
+  color: #ed674d;
+}
+.vote-controls .vote-down {
+  color: #a2aebb;
+}
+.vote-down svg {
+  transform: rotate(180deg);
+}
+.vote-controls .icon-button:hover:not(:disabled) {
+  background: #e0e6e8;
+}
+.vote-controls .voted-up {
+  color: #b8422b;
+  background: #ffe4dc;
+}
+.vote-controls .voted-down {
+  color: #087b86;
+  background: #dcf2f3;
+}
+.vote-area .error-message {
+  max-width: 360px;
+  font-size: 13px;
+}
+.discussion-sign-in,
+.no-comments {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 20px 0;
+}
+.discussion-sign-in a {
+  color: #177982;
+  font-weight: 800;
+  text-decoration: underline;
+}
+.composer-community {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.composer-community select {
+  width: 100%;
+  min-width: 0;
+}
+.composer-modes {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.composer-modes label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.composer-modes label.selected {
+  background: #e1f3f3;
+  color: #16676e;
+  border-radius: 8px;
+}
+.composer-modes input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #177982;
+}
+@media (max-width: 720px) {
+  .create-post-link {
+    margin-top: 16px;
+    min-height: 42px;
+  }
+  .composer-community {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .composer-community .text-button {
+    justify-self: start;
+  }
+  .post-card h1 {
+    font-size: 23px;
+  }
+  .comment-replies {
+    margin-left: 6px;
+    padding-left: 10px;
+  }
 }
 .community-identity {
   display: flex;

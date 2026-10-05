@@ -1,9 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { Compass, House, LogIn, MessagesSquare, UserRound } from 'lucide-react';
+import {
+  Compass,
+  House,
+  LogIn,
+  MessagesSquare,
+  Plus,
+  UserRound,
+} from 'lucide-react';
 import { ReactNode } from 'react';
 import { useSession } from './session-provider';
+import { CommunityShortcuts } from './community-shortcuts';
 
 export function AppShell({
   children,
@@ -46,6 +54,10 @@ export function AppShell({
           </span>
           <span>Roorin</span>
         </Link>
+        <Link className="primary-button create-post-link" href="/submit">
+          <Plus size={19} />
+          Create post
+        </Link>
         <nav className="side-nav" aria-label="Main navigation">
           {links.map(({ href, key, label, icon: Icon }) => (
             <Link
@@ -60,6 +72,7 @@ export function AppShell({
           ))}
         </nav>
         {accountNavigation}
+        <CommunityShortcuts />
         <div className="sidebar-footer">
           <span className="small-brand">roorin</span>
           <span>A little more connected.</span>

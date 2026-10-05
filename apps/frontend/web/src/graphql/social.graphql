@@ -27,6 +27,16 @@ query CommunityDetails($slug: String!) {
   }
 }
 
+query SubscribedCommunities($cursor: String, $limit: Int!) {
+  myCommunities(cursor: $cursor, limit: $limit) {
+    items {
+      ...CommunitySummary
+    }
+    nextCursor
+    hasMore
+  }
+}
+
 query BrowseFeed(
   $sort: FeedSort!
   $range: FeedRange!
@@ -50,6 +60,7 @@ query BrowseFeed(
       url
       authorUsername
       communityId
+      communitySlug
       createdAt
       editedAt
       score
@@ -57,5 +68,109 @@ query BrowseFeed(
     }
     nextCursor
     hasMore
+  }
+}
+
+fragment DiscussionPost on Post {
+  id
+  title
+  body
+  url
+  authorId
+  authorUsername
+  communityId
+  communitySlug
+  createdAt
+  editedAt
+  deletedAt
+  score
+  commentCount
+}
+
+fragment DiscussionComment on Comment {
+  id
+  postId
+  parentId
+  authorId
+  authorUsername
+  body
+  createdAt
+  editedAt
+  deletedAt
+  score
+  hasReplies
+}
+
+query Discussion($id: String!) {
+  post(id: $id) {
+    ...DiscussionPost
+  }
+}
+
+query ThreadComments(
+  $postId: String!
+  $parentId: String
+  $cursor: String
+  $limit: Int!
+) {
+  comments(
+    postId: $postId
+    parentId: $parentId
+    cursor: $cursor
+    limit: $limit
+  ) {
+    items {
+      ...DiscussionComment
+    }
+    nextCursor
+    hasMore
+  }
+}
+
+mutation PublishPost($input: CreatePostInput!) {
+  createPost(createPostInput: $input) {
+    ...DiscussionPost
+  }
+}
+
+mutation PublishComment($input: CreateCommentInput!) {
+  createComment(createCommentInput: $input) {
+    ...DiscussionComment
+  }
+}
+
+mutation JoinForPosting($slug: String!) {
+  joinCommunity(slug: $slug) {
+    ...CommunitySummary
+  }
+}
+
+query OwnPostVotes($ids: [String!]!) {
+  myPostVotes(postIds: $ids) {
+    targetId
+    myVote
+  }
+}
+
+query OwnCommentVotes($ids: [String!]!) {
+  myCommentVotes(commentIds: $ids) {
+    targetId
+    myVote
+  }
+}
+
+mutation SetPostVote($input: VoteInput!) {
+  votePost(voteInput: $input) {
+    targetId
+    score
+    myVote
+  }
+}
+
+mutation SetCommentVote($input: VoteInput!) {
+  voteComment(voteInput: $input) {
+    targetId
+    score
+    myVote
   }
 }
