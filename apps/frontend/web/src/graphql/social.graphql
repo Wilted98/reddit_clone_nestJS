@@ -1,3 +1,61 @@
 query SocialHealth {
   health
 }
+
+fragment CommunitySummary on Community {
+  id
+  slug
+  name
+  description
+  memberCount
+  createdAt
+}
+
+query BrowseCommunities($cursor: String, $limit: Int!) {
+  communities(cursor: $cursor, limit: $limit) {
+    items {
+      ...CommunitySummary
+    }
+    nextCursor
+    hasMore
+  }
+}
+
+query CommunityDetails($slug: String!) {
+  community(slug: $slug) {
+    ...CommunitySummary
+  }
+}
+
+query BrowseFeed(
+  $sort: FeedSort!
+  $range: FeedRange!
+  $communitySlug: String
+  $cursor: String
+  $offset: Int!
+  $limit: Int!
+) {
+  feed(
+    sort: $sort
+    range: $range
+    communitySlug: $communitySlug
+    cursor: $cursor
+    offset: $offset
+    limit: $limit
+  ) {
+    items {
+      id
+      title
+      body
+      url
+      authorUsername
+      communityId
+      createdAt
+      editedAt
+      score
+      commentCount
+    }
+    nextCursor
+    hasMore
+  }
+}

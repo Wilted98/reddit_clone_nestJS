@@ -1,5 +1,17 @@
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 
+export function isNotFound(error: unknown) {
+  return (
+    CombinedGraphQLErrors.is(error) &&
+    error.errors.some(
+      (item) =>
+        item.extensions?.code === 'NOT_FOUND' ||
+        (item.extensions?.originalError as { statusCode?: number } | undefined)
+          ?.statusCode === 404,
+    )
+  );
+}
+
 export function isUnauthenticated(error: unknown) {
   return (
     CombinedGraphQLErrors.is(error) &&

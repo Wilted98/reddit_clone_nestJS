@@ -1,5 +1,5 @@
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
-import { errorMessage, isUnauthenticated } from './errors';
+import { errorMessage, isNotFound, isUnauthenticated } from './errors';
 
 function failure(
   statusCode: number,
@@ -16,6 +16,18 @@ function failure(
 }
 
 describe('GraphQL error handling', () => {
+  it('distinguishes a missing community from transport and server failures', () => {
+    expect(isNotFound(failure(404))).toBe(true);
+    expect(
+      isNotFound(
+        new CombinedGraphQLErrors({
+          errors: [{ message: 'Missing', extensions: { code: 'NOT_FOUND' } }],
+        }),
+      ),
+    ).toBe(true);
+    expect(isNotFound(failure(500))).toBe(false);
+    expect(isNotFound(new Error('Offline'))).toBe(false);
+  });
   it('handles authentication without leaking backend details', () => {
     expect(isUnauthenticated(failure(401))).toBe(true);
     expect(errorMessage(failure(401))).toBe('Email or password is incorrect.');

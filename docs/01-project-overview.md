@@ -25,8 +25,9 @@ posts, bounded author post/comment activity, bounded root/reply comment pages,
 author-only editing and soft deletion, voting,
 and public HOT/NEW/TOP feeds. It authenticates guarded mutations and private
 vote queries over auth's gRPC endpoint. The Next.js frontend implements an
-account shell and cookie-based registration/login/logout; social screens and
-moderation workflows remain unimplemented.
+account sessions, public feeds with sorting/pagination, and community browsing.
+Discussion, voting, profile/editing screens, and moderation workflows remain
+unimplemented.
 See [`09-social-service.md`](09-social-service.md) for social operations,
 [`07-graphql-api-reference.md`](07-graphql-api-reference.md) for auth's
 schema, and [`04-authentication.md`](04-authentication.md) for how the auth
@@ -72,9 +73,9 @@ for auth examples and [`09-social-service.md`](09-social-service.md) for social.
 See [the MVP roadmap](10-mvp-roadmap.md) for small implementation batches.
 Public/private profiles, auth rate limits, bounded comment retrieval, profile
 activity, and post/comment editing are implemented. The web app supports
-account sessions; see [the web technical reference](12-web-foundation.md).
-Feed/community browsing, discussions/voting, and profile/editing screens remain
-frontend work.
+account sessions and [feed/community browsing](13-web-feeds-and-communities.md);
+see [the web technical reference](12-web-foundation.md). Discussions/voting
+and profile/editing screens remain frontend work.
 Membership context, community settings, moderation/search, password recovery,
 and public-deployment hardening remain planned. Larger feeds
 will need a materialized HOT ranking: the current offset cap limits pagination
