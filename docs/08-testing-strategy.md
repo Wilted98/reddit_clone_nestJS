@@ -24,6 +24,17 @@ would make every edge case slow and DB-dependent to verify.
 
 ## Unit tests
 
+### Frontend ownership
+
+`nx test web` uses Jest/Testing Library for input rules, GraphQL error handling,
+credentialed private transport/cache behavior, and asynchronous session state.
+`nx e2e web-e2e` uses Playwright with mocked auth HTTP responses on desktop and
+mobile, including validation, throttling, retry safety, logout failures, image
+loading, viewport bounds, and private HTML exclusion. Optional
+`nx run web-e2e:e2e-live` tests the real auth cookie flow against the local DB.
+These do not replace `auth-e2e`/`social-e2e`; they verify browser workflows and
+rendering. See [web verification](12-web-foundation.md#verification).
+
 ### Profile privacy and authentication rate limits
 
 - [`users.service.spec.ts`](../apps/backend/auth/src/app/users/users.service.spec.ts)

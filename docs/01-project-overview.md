@@ -24,8 +24,9 @@ Social supports community creation/listing, memberships, member-only text/link
 posts, bounded author post/comment activity, bounded root/reply comment pages,
 author-only editing and soft deletion, voting,
 and public HOT/NEW/TOP feeds. It authenticates guarded mutations and private
-vote queries over auth's gRPC endpoint. The frontend and moderation workflows
-remain unimplemented.
+vote queries over auth's gRPC endpoint. The Next.js frontend implements an
+account shell and cookie-based registration/login/logout; social screens and
+moderation workflows remain unimplemented.
 See [`09-social-service.md`](09-social-service.md) for social operations,
 [`07-graphql-api-reference.md`](07-graphql-api-reference.md) for auth's
 schema, and [`04-authentication.md`](04-authentication.md) for how the auth
@@ -53,7 +54,9 @@ roorin/
 └── docker-compose.yaml  local Postgres
 ```
 
-`apps/frontend/` is to be implemented. GraphQL is available at
+`apps/frontend/web` is the Next.js App Router client; `apps/frontend/web-e2e`
+contains desktop/mobile Playwright tests. The web app runs at
+`http://localhost:4200`. GraphQL is available at
 `http://localhost:3000/graphql` for auth and `http://localhost:3001/graphql`
 for social when the respective services are running.
 
@@ -68,8 +71,10 @@ for auth examples and [`09-social-service.md`](09-social-service.md) for social.
 
 See [the MVP roadmap](10-mvp-roadmap.md) for small implementation batches.
 Public/private profiles, auth rate limits, bounded comment retrieval, profile
-activity, and post/comment editing are implemented. The core API is ready for
-frontend work; see [the frontend handoff](11-frontend-handoff.md).
+activity, and post/comment editing are implemented. The web app supports
+account sessions; see [the web technical reference](12-web-foundation.md).
+Feed/community browsing, discussions/voting, and profile/editing screens remain
+frontend work.
 Membership context, community settings, moderation/search, password recovery,
 and public-deployment hardening remain planned. Larger feeds
 will need a materialized HOT ranking: the current offset cap limits pagination

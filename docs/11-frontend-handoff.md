@@ -1,7 +1,9 @@
 # 11 - Frontend Handoff
 
-The core discussion APIs are implemented; there is no frontend application
-yet. This is a starting point for frontend development, not a declaration
+The core discussion APIs are implemented. The Next.js web app supports account
+sessions; social screens remain frontend work. See
+[web foundation](12-web-foundation.md) for setup and technical details.
+This is an API handoff, not a declaration
 that membership/settings, moderation, recovery, or public-deployment work
 is complete. Keep frontend branches to one or two workflows at a time.
 
@@ -96,9 +98,10 @@ may be HTTP 400 and have a different shape, so keep a generic fallback.
 
 ## Suggested frontend batches
 
-1. Auth/session screens + global feed.
-2. Community view + post discussion/composition.
-3. Public profile/activity + own profile/content editing.
+1. Foundation + auth/session screens (implemented).
+2. Feed + community browsing.
+3. Post composition/discussions + voting.
+4. Public profile/activity + own profile/content editing.
 
 Membership context + community settings are the next backend batch and can
 be built alongside the community UI. Moderation + bounded search follow when

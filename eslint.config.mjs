@@ -21,6 +21,10 @@ export default [
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {
+              sourceTag: 'scope:web',
+              onlyDependOnLibsWithTags: ['scope:web'],
+            },
+            {
               sourceTag: 'scope:auth',
               onlyDependOnLibsWithTags: ['scope:shared'],
             },

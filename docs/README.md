@@ -22,3 +22,7 @@ limitations, and the next one-or-two-feature batches.
 [`11-frontend-handoff.md`](11-frontend-handoff.md) maps the current backend
 contracts to frontend workflows, including cookies, profile privacy, edit
 state, pagination, error handling, and remaining backend work.
+
+[`12-web-foundation.md`](12-web-foundation.md) documents the Next.js/Apollo/
+Codegen stack, local and production setup, configuration, cookie sessions,
+schema snapshots, and browser tests.

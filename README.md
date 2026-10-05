@@ -4,12 +4,14 @@ Nx monorepo with two NestJS backends: `auth` owns users, JWT sessions, and
 internal gRPC authentication; `social` owns communities, memberships, posts,
 paginated comment threads, profile activity, author-only content editing,
 voting, and HOT/NEW/TOP feeds. Each service has its own
-PostgreSQL database and Prisma client. The frontend and moderation workflows
-are not implemented yet.
+PostgreSQL database and Prisma client. A Next.js web app now implements the
+account shell and registration/login/logout sessions. Social frontend screens
+and moderation workflows are not implemented yet.
 
 ## Local setup
 
-Install Node.js 22.12+ (22.x) or 24+, npm, and Docker with Compose. From the repository root:
+Use Node.js 24 LTS (see `.nvmrc`), or 22.15+ within 22.x, npm, and Docker with
+Compose. The frontend codegen tools require the newer Node patch. From the repository root:
 
 ```bash
 npm ci
@@ -58,6 +60,31 @@ auth to run. Guarded social mutations and private vote queries require auth's gR
 
 Stop Postgres with `docker compose down`; this preserves its volume.
 
+## Web app
+
+With auth running, start the account UI from the repository root:
+
+```bash
+npx nx dev web
+```
+
+Open `http://localhost:4200`; both backend CORS templates already allow this
+origin. The frontend uses the existing httpOnly auth cookie, not a separate
+auth system or localStorage tokens. Endpoint overrides are documented in
+`apps/frontend/web/.env.example`; put local values in `.env.local`.
+
+```bash
+npx nx run-many -t lint,typecheck,test,build -p web
+npx playwright install chromium
+npx nx e2e web-e2e
+```
+
+Codegen/build/unit tests use committed schema snapshots and do not need live
+APIs. Refresh them after backend schema changes with `nx run web:schema`,
+then `nx run web:codegen`. Default browser tests mock auth; optional
+`nx run web-e2e:e2e-live` verifies cookies against the real migrated auth DB.
+See [web setup and technical reference](docs/12-web-foundation.md).
+
 ## Verification
 
 Apply new committed migrations after switching branches or pulling updates.
@@ -103,7 +130,7 @@ nullable `editedAt` tracks edits independently of votes and counters. Apply
 the new social migration before serving/testing this branch. See
 [the editing contract](docs/09-social-service.md#content-editing).
 
-The core discussion API is ready to begin frontend development, not a claim
+The core discussion API is ready for further frontend development, not a claim
 that every backend or public-deployment task is finished. Start with
 [the frontend handoff](docs/11-frontend-handoff.md); membership context/settings,
 moderation/search, and password recovery remain on the roadmap.
