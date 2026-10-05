@@ -61,9 +61,10 @@ permission rules, deployment, and concurrent-edit limitations.
 ## Frontend handoff
 
 This completes the core discussion API milestone, not every backend feature
-or production-hardening task. Frontend work can start now: first auth + feed,
-then community + discussion views, then profile + editing. Keep the same
-one-or-two-feature workflow. [The frontend handoff](11-frontend-handoff.md)
+or production-hardening task. The web app supports account sessions;
+see [the web technical reference](12-web-foundation.md). Feed/community browsing,
+discussions/voting, and profiles/editing remain frontend work.
+Keep the same one-or-two-feature workflow. [The frontend handoff](11-frontend-handoff.md)
 maps these screens to the current contracts and cookie/pagination rules.
 
 Membership context/settings remain the next backend batch, useful alongside

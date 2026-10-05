@@ -1,0 +1,49 @@
+type Account {
+  avatarUrl: String
+  bio: String
+  createdAt: DateTime!
+  email: String!
+  id: ID!
+  username: String!
+}
+
+input CreateUserInput {
+  email: String!
+  password: String!
+  username: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  createUser(createUserInput: CreateUserInput!): Account!
+  login(loginInput: LoginInput!): Account!
+  logout: Boolean!
+  updateUser(updateUserInput: UpdateUserInput!): Account!
+}
+
+type Query {
+  me: Account!
+  user(username: String!): User!
+}
+
+input UpdateUserInput {
+  avatarUrl: String
+  bio: String
+}
+
+type User {
+  avatarUrl: String
+  bio: String
+  createdAt: DateTime!
+  id: ID!
+  username: String!
+}

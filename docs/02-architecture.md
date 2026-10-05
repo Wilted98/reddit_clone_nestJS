@@ -34,8 +34,8 @@ project grows:
 
 ### `apps/backend/` is a real, load-bearing prefix
 
-Every backend service lives under `apps/backend/<name>`. When a frontend
-client is added, it goes under `apps/frontend/<name>` — a sibling, not a
+Every backend service lives under `apps/backend/<name>`. The Next.js client
+lives under `apps/frontend/web` — a sibling, not a
 peer scattered flatly into `apps/`. This means the moment you look at
 `apps/`, you know which side of the network boundary any given folder is on,
 without opening it. That distinction gets more valuable, not less, as more

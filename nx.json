@@ -17,6 +17,16 @@
   },
   "plugins": [
     {
+      "plugin": "@nx/next/plugin",
+      "include": ["apps/frontend/web/**/*"],
+      "options": {
+        "buildTargetName": "build",
+        "devTargetName": "dev",
+        "startTargetName": "start",
+        "serveStaticTargetName": "serve-static"
+      }
+    },
+    {
       "plugin": "@nx/webpack/plugin",
       "options": {
         "buildTargetName": "build",

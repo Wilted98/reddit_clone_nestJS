@@ -1,0 +1,30 @@
+query Session {
+  me {
+    id
+    username
+    email
+    avatarUrl
+    bio
+  }
+}
+
+mutation SignIn($input: LoginInput!) {
+  login(loginInput: $input) {
+    id
+    username
+    email
+    avatarUrl
+    bio
+  }
+}
+
+mutation Register($input: CreateUserInput!) {
+  createUser(createUserInput: $input) {
+    id
+    username
+  }
+}
+
+mutation SignOut {
+  logout
+}

@@ -1,0 +1,159 @@
+type Comment {
+  authorId: String!
+  authorUsername: String!
+  body: String!
+  createdAt: DateTime!
+  deletedAt: DateTime
+  editedAt: DateTime
+  hasReplies: Boolean!
+  id: ID!
+  parentId: String
+  postId: String!
+  score: Int!
+}
+
+type CommentPage {
+  hasMore: Boolean!
+  items: [Comment!]!
+  nextCursor: String
+}
+
+type Community {
+  createdAt: DateTime!
+  description: String
+  id: ID!
+  memberCount: Int!
+  name: String!
+  ownerId: String!
+  slug: String!
+}
+
+type CommunityPage {
+  hasMore: Boolean!
+  items: [Community!]!
+  nextCursor: String
+}
+
+input CreateCommentInput {
+  body: String!
+  parentId: String
+  postId: String!
+}
+
+input CreateCommunityInput {
+  description: String
+  name: String!
+  slug: String!
+}
+
+input CreatePostInput {
+  body: String
+  communitySlug: String!
+  title: String!
+  url: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+enum FeedRange {
+  ALL
+  DAY
+  MONTH
+  WEEK
+}
+
+enum FeedSort {
+  HOT
+  NEW
+  TOP
+}
+
+type Mutation {
+  createComment(createCommentInput: CreateCommentInput!): Comment!
+  createCommunity(createCommunityInput: CreateCommunityInput!): Community!
+  createPost(createPostInput: CreatePostInput!): Post!
+  deleteComment(id: String!): Comment!
+  deletePost(id: String!): Post!
+  joinCommunity(slug: String!): Community!
+  leaveCommunity(slug: String!): Community!
+  updateComment(updateCommentInput: UpdateCommentInput!): Comment!
+  updatePost(updatePostInput: UpdatePostInput!): Post!
+  voteComment(voteInput: VoteInput!): VoteResult!
+  votePost(voteInput: VoteInput!): VoteResult!
+}
+
+type Post {
+  authorId: String!
+  authorUsername: String!
+  body: String
+  commentCount: Int!
+  communityId: String!
+  createdAt: DateTime!
+  deletedAt: DateTime
+  editedAt: DateTime
+  id: ID!
+  score: Int!
+  title: String!
+  url: String
+}
+
+type PostPage {
+  hasMore: Boolean!
+  items: [Post!]!
+  nextCursor: String
+}
+
+type Query {
+  comments(
+    cursor: String
+    limit: Int! = 25
+    parentId: String
+    postId: String!
+  ): CommentPage!
+  commentsByAuthor(
+    authorId: String!
+    cursor: String
+    limit: Int! = 25
+  ): CommentPage!
+  communities(cursor: String, limit: Int! = 25): CommunityPage!
+  community(slug: String!): Community!
+  feed(
+    communitySlug: String
+    cursor: String
+    limit: Int! = 25
+    offset: Int! = 0
+    range: FeedRange! = ALL
+    sort: FeedSort! = HOT
+  ): PostPage!
+  health: String!
+  myCommentVotes(commentIds: [String!]!): [VoteResult!]!
+  myPostVotes(postIds: [String!]!): [VoteResult!]!
+  post(id: String!): Post!
+  postsByAuthor(authorId: String!, cursor: String, limit: Int! = 25): PostPage!
+}
+
+input UpdateCommentInput {
+  body: String!
+  id: String!
+}
+
+input UpdatePostInput {
+  body: String
+  id: String!
+  title: String
+  url: String
+}
+
+input VoteInput {
+  targetId: String!
+  value: Int!
+}
+
+type VoteResult {
+  myVote: Int!
+  score: Int!
+  targetId: String!
+}
