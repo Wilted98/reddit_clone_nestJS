@@ -5,7 +5,7 @@ test('uses real Nest cookies to register, restore the account, and logout', asyn
 }) => {
   const username = `web_${Date.now().toString(36)}`;
   const email = `${username}@example.com`;
-  await page.goto('/');
+  await page.goto('/account');
   await page
     .getByRole('navigation', { name: 'Account navigation' })
     .getByRole('button', { name: 'Create account' })

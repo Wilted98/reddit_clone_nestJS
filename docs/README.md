@@ -26,3 +26,7 @@ state, pagination, error handling, and remaining backend work.
 [`12-web-foundation.md`](12-web-foundation.md) documents the Next.js/Apollo/
 Codegen stack, local and production setup, configuration, cookie sessions,
 schema snapshots, and browser tests.
+
+[`13-web-feeds-and-communities.md`](13-web-feeds-and-communities.md) documents
+public web routes, feed filters, cursor/offset pagination, content rendering,
+error states, API boundaries, and browser verification.

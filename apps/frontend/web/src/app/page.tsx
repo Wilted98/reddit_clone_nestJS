@@ -1,5 +1,10 @@
-import { AccountScreen } from '../components/account-screen';
+import { FeedScreen } from '../components/feed-screen';
+import { parseFeedFilters, SearchParams } from '../lib/feed';
 
-export default function Page() {
-  return <AccountScreen />;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  return <FeedScreen filters={parseFeedFilters(await searchParams)} />;
 }

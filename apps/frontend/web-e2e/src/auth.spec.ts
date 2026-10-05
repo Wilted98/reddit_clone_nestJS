@@ -104,7 +104,7 @@ test('signs in, restores on reload, and removes private account state on logout'
   page,
 }, testInfo) => {
   const operations = await mockAuth(page);
-  await page.goto('/');
+  await page.goto('/account');
   await expect(
     page.getByRole('heading', { name: 'Welcome back.' }),
   ).toBeVisible();
@@ -133,7 +133,7 @@ test('keeps drafts and shows validation, password visibility, and throttling err
   page,
 }) => {
   const operations = await mockAuth(page, { loginStatus: 429 });
-  await page.goto('/');
+  await page.goto('/account');
   const form = page.getByRole('form', { name: 'Sign in', exact: true });
   await form.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByText('Enter a valid email address.')).toBeVisible();
@@ -157,7 +157,7 @@ test('does not register twice when automatic login is throttled', async ({
   page,
 }) => {
   const operations = await mockAuth(page, { loginFailures: 1 });
-  await page.goto('/');
+  await page.goto('/account');
   await page
     .getByRole('navigation', { name: 'Account navigation' })
     .getByRole('button', { name: 'Create account' })
@@ -182,7 +182,7 @@ test('does not register twice when automatic login is throttled', async ({
 
 test('retains account view if logout fails', async ({ page }) => {
   await mockAuth(page, { restored: true, logoutFailure: true });
-  await page.goto('/');
+  await page.goto('/account');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('main').getByRole('alert')).toContainText(
     'Something went wrong',
@@ -195,7 +195,7 @@ test('fits the viewport and never embeds private account data in initial HTML', 
   request,
 }, testInfo) => {
   await mockAuth(page);
-  await page.goto('/');
+  await page.goto('/account');
   await expect(
     page.getByRole('heading', { name: 'Welcome back.' }),
   ).toBeVisible();
@@ -204,7 +204,7 @@ test('fits the viewport and never embeds private account data in initial HTML', 
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
-  const response = await request.get('/');
+  const response = await request.get('/account');
   expect(await response.text()).not.toContain(account.email);
   if (testInfo.project.name === 'desktop') {
     const image = page.getByRole('img', {
@@ -219,7 +219,7 @@ test('fits the viewport and never embeds private account data in initial HTML', 
 
 test('does not submit malformed registration input', async ({ page }) => {
   const operations = await mockAuth(page);
-  await page.goto('/');
+  await page.goto('/account');
   await page
     .getByRole('navigation', { name: 'Account navigation' })
     .getByRole('button', { name: 'Create account' })
@@ -242,7 +242,7 @@ test('shows invalid credentials without discarding the draft', async ({
   page,
 }) => {
   await mockAuth(page, { loginStatus: 401 });
-  await page.goto('/');
+  await page.goto('/account');
   await signIn(page);
   await expect(
     page.getByRole('form', { name: 'Sign in', exact: true }).getByRole('alert'),

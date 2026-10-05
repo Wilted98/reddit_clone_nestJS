@@ -27,11 +27,13 @@ would make every edge case slow and DB-dependent to verify.
 ### Frontend ownership
 
 `nx test web` uses Jest/Testing Library for input rules, GraphQL error handling,
-credentialed private transport/cache behavior, and asynchronous session state.
-`nx e2e web-e2e` uses Playwright with mocked auth HTTP responses on desktop and
-mobile, including validation, throttling, retry safety, logout failures, image
-loading, viewport bounds, and private HTML exclusion. Optional
-`nx run web-e2e:e2e-live` tests the real auth cookie flow against the local DB.
+credentialed private transport/cache behavior, asynchronous session state,
+feed filters/pagination, and safe content rendering.
+`nx e2e web-e2e` uses Playwright with mocked auth/social HTTP responses on
+desktop and mobile, including validation, throttling, retry safety, logout
+failures, social browsing, pagination, late responses, image loading, viewport
+bounds, and private HTML exclusion. Optional `nx run web-e2e:e2e-live` tests
+the real auth cookie flow and read-only social browsing against the local APIs.
 These do not replace `auth-e2e`/`social-e2e`; they verify browser workflows and
 rendering. See [web verification](12-web-foundation.md#verification).
 

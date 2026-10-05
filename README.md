@@ -5,8 +5,9 @@ internal gRPC authentication; `social` owns communities, memberships, posts,
 paginated comment threads, profile activity, author-only content editing,
 voting, and HOT/NEW/TOP feeds. Each service has its own
 PostgreSQL database and Prisma client. A Next.js web app now implements the
-account shell and registration/login/logout sessions. Social frontend screens
-and moderation workflows are not implemented yet.
+cookie-based account sessions, public feeds with sorting/pagination, and
+community browsing. Discussion, voting, profile/editing screens, and moderation
+workflows are not implemented yet.
 
 ## Local setup
 
@@ -62,14 +63,17 @@ Stop Postgres with `docker compose down`; this preserves its volume.
 
 ## Web app
 
-With auth running, start the account UI from the repository root:
+With social running for public browsing and auth running for account operations,
+start the web app from the repository root:
 
 ```bash
 npx nx dev web
 ```
 
 Open `http://localhost:4200`; both backend CORS templates already allow this
-origin. The frontend uses the existing httpOnly auth cookie, not a separate
+origin. Home is the public feed; `/communities` lists communities,
+`/r/[slug]` opens a community feed, and `/account` handles account sessions.
+The frontend uses the existing httpOnly auth cookie, not a separate
 auth system or localStorage tokens. Endpoint overrides are documented in
 `apps/frontend/web/.env.example`; put local values in `.env.local`.
 
@@ -81,9 +85,10 @@ npx nx e2e web-e2e
 
 Codegen/build/unit tests use committed schema snapshots and do not need live
 APIs. Refresh them after backend schema changes with `nx run web:schema`,
-then `nx run web:codegen`. Default browser tests mock auth; optional
-`nx run web-e2e:e2e-live` verifies cookies against the real migrated auth DB.
-See [web setup and technical reference](docs/12-web-foundation.md).
+then `nx run web:codegen`. Default browser tests mock auth and social; optional
+`nx run web-e2e:e2e-live` verifies real auth cookies and public social browsing
+against the local APIs/databases. See [web setup](docs/12-web-foundation.md)
+and [feed/community behavior](docs/13-web-feeds-and-communities.md).
 
 ## Verification
 

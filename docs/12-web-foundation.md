@@ -4,6 +4,12 @@ The `web` Nx application lives in `apps/frontend/web`. It connects to the
 separate NestJS auth and social GraphQL APIs. Authentication uses the backend's
 httpOnly cookie; the frontend does not issue or persist access tokens.
 
+Home (`/`), the community directory (`/communities`), and community feeds
+(`/r/[slug]`) are public browsing routes. Registration, login, and the private
+account view live at `/account`. See
+[feeds and communities](13-web-feeds-and-communities.md) for their query and
+pagination contracts.
+
 ## Stack
 
 - Next.js App Router + React + strict TypeScript.
@@ -151,21 +157,23 @@ npx nx e2e web-e2e
 
 Unit tests cover validation parity, error mapping, private cache/transport
 behavior, session restoration, stale requests, and successful/failed logout.
-Default Playwright suites mock the auth HTTP boundary and require no database.
+Default Playwright suites mock auth and social HTTP boundaries and require no database.
 They verify desktop/mobile forms, validation, password visibility, login,
 reload restoration, logout, invalid credentials, throttling, registration
-retry safety, viewport bounds, image loading, and private HTML exclusion.
+retry safety, social browsing/pagination, viewport bounds, image loading,
+and private HTML exclusion.
 Screenshots/traces go to ignored `test-results/web`; no mock data ships in the app.
 
-With the real migrated auth database and auth server running:
+With both migrated databases and backend APIs running:
 
 ```bash
 npx nx run web-e2e:e2e-live
 ```
 
-This optional test creates one unique local test account, verifies the real
+The live auth test creates one unique local test account, verifies the real
 httpOnly cookie through registration/login/reload/logout, and leaves that test
-record in the database. Stop unrelated servers on port 4200 in CI; local
+record in the database. The live social test reads existing data without
+changing social records. Stop unrelated servers on port 4200 in CI; local
 Playwright runs reuse an existing development server there.
 
 When no server is running, Playwright starts Next directly and shuts it down
@@ -177,7 +185,7 @@ security audit.
 
 ## Static assets
 
-Fonts are bundled from `@fontsource/nunito`. The account screen uses
+Fonts are bundled from `@fontsource/nunito`. The account screen and discovery rail use
 `public/community-street.jpg`, a locally bundled
 [Unsplash neighborhood image](https://images.unsplash.com/photo-1449824913935-59a10b8d2000).
 It is illustrative welcome media, not a user-uploaded photograph.
