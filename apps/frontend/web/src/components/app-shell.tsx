@@ -20,13 +20,11 @@ export function AppShell({
   active,
   title,
   mainId = 'content',
-  accountNavigation,
 }: {
   children: ReactNode;
   active: 'home' | 'communities' | 'account' | 'profile' | null;
   title: string;
   mainId?: string;
-  accountNavigation?: ReactNode;
 }) {
   const { account } = useSession();
   const links = [
@@ -80,7 +78,6 @@ export function AppShell({
             </Link>
           ))}
         </nav>
-        {accountNavigation}
         <CommunityShortcuts />
         <div className="sidebar-footer">
           <span className="small-brand">roorin</span>

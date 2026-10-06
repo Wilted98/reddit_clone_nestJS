@@ -27,6 +27,9 @@ describe('own profile settings', () => {
   it('sends only changed public fields and disables saving after success', async () => {
     render(<ProfileSettingsForm account={account} onCancel={jest.fn()} />);
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Save changes' }),
+    ).toHaveAttribute('aria-busy', 'false');
     fireEvent.change(screen.getByLabelText('Bio'), {
       target: { value: 'New bio' },
     });
@@ -35,6 +38,9 @@ describe('own profile settings', () => {
     expect(updateProfile).toHaveBeenCalledWith({ bio: 'New bio' });
     expect(screen.queryByText(account.email)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Save changes' }),
+    ).toHaveAttribute('aria-busy', 'false');
   });
   it('preserves a failed draft and serializes pending saves', async () => {
     let reject!: (error: Error) => void;
@@ -51,6 +57,10 @@ describe('own profile settings', () => {
     fireEvent.submit(screen.getByRole('form', { name: 'Profile settings' }));
     await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
     expect(screen.getByLabelText('Bio')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saving...' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
     fireEvent.submit(screen.getByRole('form', { name: 'Profile settings' }));
     await act(async () => {
       reject(new Error('Offline'));
@@ -59,6 +69,9 @@ describe('own profile settings', () => {
       'Could not reach Roorin',
     );
     expect(screen.getByLabelText('Bio')).toHaveValue('Keep this draft');
+    expect(
+      screen.getByRole('button', { name: 'Save changes' }),
+    ).toHaveAttribute('aria-busy', 'false');
     expect(updateProfile).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText('Profile saved.')).toBeInTheDocument();

@@ -187,6 +187,410 @@ async function mockAPIs(
   return operations;
 }
 
+const joined = communities.slice(0, 2).map((item, index) => ({
+  ...item,
+  ownerId: index === 0 ? 'someone-else' : privateAccount.id,
+}));
+
+test('membership navigation protects owners and fits long community names', async ({
+  page,
+}, testInfo) => {
+  const long = {
+    ...joined[0],
+    name: 'CommunityName'.repeat(20),
+    description: 'LongDescription'.repeat(50),
+  };
+  const operations = await mockAPIs(
+    page,
+    ({ operationName }) =>
+      operationName === 'JoinedCommunities'
+        ? { data: { myCommunities: communityPage([long, joined[1]]) } }
+        : {},
+    { signedIn: true },
+  );
+  await page.goto('/communities');
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: 'Your communities', exact: true })
+    .click();
+  await expect(page).toHaveURL('/communities/joined');
+  await expect(page.locator('.membership-row')).toHaveCount(2);
+  await expect(
+    page.getByRole('button', { name: 'Leave r/craft' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Leave r/romania' }),
+  ).toHaveCount(0);
+  await expect(page.getByText('Owner', { exact: true })).toBeVisible();
+  expect(
+    operations.find((op) => op.operationName === 'JoinedCommunities')
+      ?.variables,
+  ).toEqual({ cursor: null, limit: 20 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('memberships.png'),
+    fullPage: true,
+  });
+  if (testInfo.project.name === 'desktop') {
+    await page.getByRole('link', { name: 'Manage communities' }).click();
+    await expect(page).toHaveURL('/communities/joined');
+  }
+});
+
+test('membership departures require confirmation, keep layout stable and refresh subscriptions', async ({
+  page,
+}, testInfo) => {
+  let departed = false;
+  const operations = await mockAPIs(
+    page,
+    ({ operationName }) => {
+      if (
+        operationName === 'JoinedCommunities' ||
+        operationName === 'SubscribedCommunities'
+      )
+        return {
+          data: {
+            myCommunities: communityPage(departed ? joined.slice(1) : joined),
+          },
+        };
+      if (operationName === 'LeaveCommunity') {
+        departed = true;
+        return { data: { leaveCommunity: joined[0] } };
+      }
+      return {};
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities/joined');
+  const trigger = page.getByRole('button', { name: 'Leave r/craft' });
+  await expect(trigger).toBeVisible();
+  const before = await page
+    .getByRole('heading', { name: 'Your communities', exact: true, level: 1 })
+    .boundingBox();
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Leave r/craft?' });
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  expect(
+    (
+      await page
+        .getByRole('heading', {
+          name: 'Your communities',
+          exact: true,
+          level: 1,
+        })
+        .boundingBox()
+    )?.x,
+  ).toBe(before?.x);
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  expect(
+    operations.filter((op) => op.operationName === 'LeaveCommunity'),
+  ).toHaveLength(0);
+  await trigger.click();
+  await page.screenshot({
+    path: testInfo.outputPath('leave-confirmation.png'),
+  });
+  await dialog.getByRole('button', { name: 'Confirm leave community' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.membership-row')).toHaveCount(1);
+  await expect(
+    page.getByRole('heading', { name: 'Joined communities', exact: true }),
+  ).toBeFocused();
+  await expect
+    .poll(
+      () =>
+        operations.filter((op) => op.operationName === 'SubscribedCommunities')
+          .length,
+    )
+    .toBe(2);
+  if (testInfo.project.name === 'desktop')
+    await expect(
+      page
+        .getByRole('region', { name: 'Subscribed communities' })
+        .getByRole('link', { name: 'r/craft', exact: true }),
+    ).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.membership-row')).toHaveCount(1);
+});
+
+test('membership failures retain rows and lock writes until an explicit retry', async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  let attempts = 0;
+  await mockAPIs(
+    page,
+    async ({ operationName }) => {
+      if (operationName === 'JoinedCommunities')
+        return { data: { myCommunities: communityPage(joined) } };
+      if (operationName === 'LeaveCommunity') {
+        if (++attempts === 1) {
+          await gate;
+          return failure(500);
+        }
+        return { data: { leaveCommunity: joined[0] } };
+      }
+      return {};
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities/joined');
+  await page.getByRole('button', { name: 'Leave r/craft' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Confirm leave community' }).click();
+  await expect(
+    dialog.getByRole('button', { name: 'Leaving...' }),
+  ).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  release();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await expect(page.locator('.membership-row')).toHaveCount(2);
+  expect(attempts).toBe(1);
+  await dialog.getByRole('button', { name: 'Confirm leave community' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.membership-row')).toHaveCount(1);
+  expect(attempts).toBe(2);
+});
+
+test('membership queries remain gated for guests and expire without replaying departures', async ({
+  page,
+}) => {
+  const options = { signedIn: false };
+  const operations = await mockAPIs(
+    page,
+    ({ operationName }) => {
+      if (operationName === 'JoinedCommunities')
+        return { data: { myCommunities: communityPage(joined) } };
+      if (operationName === 'LeaveCommunity') {
+        options.signedIn = false;
+        return failure(401);
+      }
+      return {};
+    },
+    options,
+  );
+  await page.goto('/communities/joined');
+  await expect(
+    page.getByRole('link', { name: 'Sign in to see your communities' }),
+  ).toBeVisible();
+  expect(
+    operations.some((op) => op.operationName === 'JoinedCommunities'),
+  ).toBe(false);
+  options.signedIn = true;
+  await page.reload();
+  await page.getByRole('button', { name: 'Leave r/craft' }).click();
+  await page.getByRole('button', { name: 'Confirm leave community' }).click();
+  await expect(
+    page.getByRole('link', { name: 'Sign in to see your communities' }),
+  ).toBeVisible();
+  await expect(page.locator('.membership-row')).toHaveCount(0);
+  expect(
+    operations.filter((op) => op.operationName === 'LeaveCommunity'),
+  ).toHaveLength(1);
+});
+
+test('membership paging deduplicates overlaps without resurrecting departed rows', async ({
+  page,
+}) => {
+  const operations = await mockAPIs(
+    page,
+    ({ operationName, variables }) => {
+      if (operationName === 'JoinedCommunities')
+        return {
+          data: {
+            myCommunities: variables.cursor
+              ? communityPage([
+                  ...joined,
+                  { ...communities[2], ownerId: 'other' },
+                ])
+              : communityPage(joined, true, 'romania'),
+          },
+        };
+      if (operationName === 'LeaveCommunity')
+        return { data: { leaveCommunity: joined[0] } };
+      return {};
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities/joined');
+  await page.getByRole('button', { name: 'Leave r/craft' }).click();
+  await page.getByRole('button', { name: 'Confirm leave community' }).click();
+  await expect(page.locator('.membership-row')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Load more communities' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Loading more communities...' }),
+  ).toBeVisible();
+  await expect(page.locator('.membership-row')).toHaveCount(2);
+  await expect(
+    page.locator('.membership-link[data-community-id="nightowls"]'),
+  ).toBeFocused();
+  await expect(
+    page.locator('.membership-link[data-community-id="craft"]'),
+  ).toHaveCount(0);
+  expect(
+    operations
+      .filter((op) => op.operationName === 'JoinedCommunities')
+      .map((op) => op.variables.cursor),
+  ).toEqual([null, 'romania']);
+});
+
+test('membership paging continues after departure removes its last visible cursor row', async ({
+  page,
+}) => {
+  const operations = await mockAPIs(
+    page,
+    ({ operationName, variables }) => {
+      if (operationName === 'JoinedCommunities')
+        return {
+          data: {
+            myCommunities: variables.cursor
+              ? communityPage(joined.slice(1))
+              : communityPage(joined.slice(0, 1), true, 'craft'),
+          },
+        };
+      if (operationName === 'LeaveCommunity')
+        return { data: { leaveCommunity: joined[0] } };
+      return {};
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities/joined');
+  await page.getByRole('button', { name: 'Leave r/craft' }).click();
+  await page.getByRole('button', { name: 'Confirm leave community' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'No communities on this page' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'No joined communities' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Load more communities' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Loading more communities...' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'No joined communities' }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator('.membership-link[data-community-id="romania"]'),
+  ).toBeFocused();
+  expect(
+    operations
+      .filter((op) => op.operationName === 'JoinedCommunities')
+      .map((op) => op.variables.cursor),
+  ).toEqual([null, 'craft']);
+});
+
+test('membership automatic paging pauses after failure and retries the same cursor', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await mockAPIs(
+    page,
+    ({ operationName, variables }) => {
+      if (operationName !== 'JoinedCommunities') return {};
+      if (!variables.cursor)
+        return {
+          data: { myCommunities: communityPage(joined, true, 'romania') },
+        };
+      return ++attempts === 1
+        ? failure(500)
+        : {
+            data: {
+              myCommunities: communityPage([
+                { ...communities[2], ownerId: 'other' },
+              ]),
+            },
+          };
+    },
+    { signedIn: true, autoLoad: true },
+  );
+  await page.goto('/communities/joined');
+  await page
+    .locator('.directory-column .feed-sentinel')
+    .scrollIntoViewIfNeeded();
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
+  await page.waitForTimeout(900);
+  expect(attempts).toBe(1);
+  await expect(page.locator('.membership-row')).toHaveCount(2);
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Retry', exact: true })
+    .click();
+  await expect(page.locator('.membership-row')).toHaveCount(3);
+  expect(attempts).toBe(2);
+});
+
+test('membership automatic paging stops when the cursor repeats', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await mockAPIs(
+    page,
+    ({ operationName, variables }) => {
+      if (operationName !== 'JoinedCommunities') return {};
+      if (!variables.cursor)
+        return {
+          data: { myCommunities: communityPage(joined, true, 'romania') },
+        };
+      attempts++;
+      return {
+        data: {
+          myCommunities: communityPage(
+            [{ ...communities[2], ownerId: 'other' }],
+            true,
+            'romania',
+          ),
+        },
+      };
+    },
+    { signedIn: true, autoLoad: true },
+  );
+  await page.goto('/communities/joined');
+  await page
+    .locator('.directory-column .feed-sentinel')
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByRole('button', { name: 'Load more communities' }),
+  ).toBeEnabled();
+  await expect(page.locator('.membership-row')).toHaveCount(3);
+  await page.waitForTimeout(900);
+  expect(attempts).toBe(1);
+});
+
+test('membership initial outages are retryable and empty lists are explicit', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await mockAPIs(
+    page,
+    ({ operationName }) =>
+      operationName === 'JoinedCommunities'
+        ? ++attempts === 1
+          ? failure(500)
+          : { data: { myCommunities: communityPage([]) } }
+        : {},
+    { signedIn: true },
+  );
+  await page.goto('/communities/joined');
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Retry', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'No joined communities' }),
+  ).toBeVisible();
+});
+
 const fullFeedPage = Array.from({ length: 20 }, (_, index) =>
   post(`page-${index}`),
 );

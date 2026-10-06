@@ -43,6 +43,27 @@ mutation CreateCommunity($input: CreateCommunityInput!) {
   }
 }
 
+fragment JoinedCommunity on Community {
+  ...CommunitySummary
+  ownerId
+}
+
+query JoinedCommunities($cursor: String, $limit: Int!) {
+  myCommunities(cursor: $cursor, limit: $limit) {
+    items {
+      ...JoinedCommunity
+    }
+    nextCursor
+    hasMore
+  }
+}
+
+mutation LeaveCommunity($slug: String!) {
+  leaveCommunity(slug: $slug) {
+    ...JoinedCommunity
+  }
+}
+
 query BrowseFeed(
   $sort: FeedSort!
   $range: FeedRange!

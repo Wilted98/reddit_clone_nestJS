@@ -34,8 +34,11 @@ button {
   cursor: pointer;
 }
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.65;
+}
+button[aria-busy='true'] {
+  cursor: wait;
 }
 a {
   color: inherit;
@@ -719,13 +722,6 @@ input[readonly] {
 .nav-item svg {
   flex-shrink: 0;
 }
-.account-mode-nav {
-  display: grid;
-  gap: 8px;
-  padding-top: 18px;
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-}
 .social-layout {
   flex: 1;
   display: grid;
@@ -1389,6 +1385,75 @@ select:focus-visible {
   margin: 26px auto 0;
   min-width: 180px;
 }
+.directory-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.membership-list-heading {
+  font-size: 17px;
+  margin: 0 0 18px;
+  scroll-margin-top: var(--scroll-offset);
+}
+.membership-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.membership-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+.membership-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.membership-link {
+  display: block;
+  scroll-margin-top: var(--scroll-offset);
+}
+.membership-link h3 {
+  font-size: 17px;
+  margin: 7px 0;
+}
+.membership-link:hover {
+  color: #147781;
+  text-decoration: underline;
+}
+.membership-details p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 8px 0 12px;
+}
+.membership-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+.membership-status {
+  color: #147781;
+  font-size: 12px;
+  font-weight: 800;
+}
+@media (max-width: 600px) {
+  .membership-row {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .membership-actions {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+}
 .feed-page-loading .query-loading {
   justify-content: center;
   min-height: 88px;
@@ -1769,12 +1834,6 @@ textarea[aria-invalid='true'] {
   }
   .nav-item svg {
     width: 18px;
-  }
-  .account-mode-nav {
-    display: flex;
-    margin: 0;
-    padding: 0 0 18px;
-    border: 0;
   }
   .feed-toolbar {
     gap: 8px;

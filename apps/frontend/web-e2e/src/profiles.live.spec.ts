@@ -7,8 +7,8 @@ test('saves own profile through Nest and keeps public profile activity separate 
   const email = `${username}@example.com`;
   await page.goto('/account');
   await page
-    .getByRole('navigation', { name: 'Account navigation' })
-    .getByRole('button', { name: 'Create account' })
+    .getByRole('main')
+    .getByRole('button', { name: 'Create account', exact: true })
     .click();
   await page.getByLabel('Username').fill(username);
   await page.getByLabel('Email', { exact: true }).fill(email);

@@ -119,6 +119,7 @@ export function ProfileSettingsForm({
           className="primary-button"
           type="submit"
           disabled={isSubmitting || !isDirty}
+          aria-busy={isSubmitting}
         >
           {isSubmitting ? (
             <LoaderCircle className="spin" size={18} />

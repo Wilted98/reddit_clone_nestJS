@@ -1,7 +1,13 @@
 'use client';
 
 import { useQuery } from '@apollo/client/react';
-import { ChevronDown, ChevronUp, RefreshCw, ArrowDown } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  ArrowDown,
+  Settings2,
+} from 'lucide-react';
 import Link from 'next/link';
 import {
   useCallback,
@@ -207,6 +213,9 @@ function Subscriptions() {
   }
   return (
     <>
+      <Link href="/communities/joined" className="text-button shortcut-more">
+        <Settings2 size={14} /> Manage communities
+      </Link>
       {data && <CommunityLinks items={data.myCommunities.items} />}
       {loading && !data && (
         <p className="shortcut-empty" role="status">

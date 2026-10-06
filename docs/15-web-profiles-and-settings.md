@@ -68,6 +68,9 @@ an empty string; clearing an existing avatar writes explicit `null`.
 Saving an unchanged form is disabled. Save and Cancel are disabled while a
 write is pending, and repeated submissions cannot duplicate a pending write.
 Cancel discards the draft; successful saves reset dirty state.
+Disabled, unchanged Save changes buttons use the unavailable cursor, not a
+busy cursor. The busy cursor, spinner, and `aria-busy` state apply only during
+an actual submission and clear after success, failure, or validation errors.
 
 Avatar images load directly in the browser with `referrerPolicy: no-referrer`
 and Next image optimization disabled. Arbitrary avatar URLs are never fetched

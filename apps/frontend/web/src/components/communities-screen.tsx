@@ -149,10 +149,15 @@ export function CommunitiesScreen() {
               </span>
               <h1 id="directory-heading">Communities</h1>
             </div>
-            <Link className="primary-button" href="/communities/new">
-              <Plus size={17} />
-              Create community
-            </Link>
+            <div className="directory-actions">
+              <Link className="text-button" href="/communities/joined">
+                <UsersRound size={17} /> Your communities
+              </Link>
+              <Link className="primary-button" href="/communities/new">
+                <Plus size={17} />
+                Create community
+              </Link>
+            </div>
           </div>
           {loading && !data && <QueryLoading label="Loading communities..." />}
           {error && !pending && !pageError && (

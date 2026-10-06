@@ -149,6 +149,52 @@ test('signs in, restores on reload, and removes private account state on logout'
   });
 });
 
+test('keeps one account entry and switches auth modes beneath the form', async ({
+  page,
+}, testInfo) => {
+  await mockAuth(page);
+  await page.goto('/account');
+  await expect(
+    page.getByRole('heading', { name: 'Welcome back.' }),
+  ).toBeVisible();
+  const sidebar = page.locator('.sidebar');
+  await expect(
+    sidebar
+      .getByRole('navigation', { name: 'Main navigation' })
+      .getByRole('link', { name: 'Sign in', exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    sidebar.getByRole('button', { name: /Sign in|Create account/ }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('navigation', { name: 'Account navigation' }),
+  ).toHaveCount(0);
+  await page
+    .locator('.auth-switch')
+    .getByRole('button', { name: 'Create account', exact: true })
+    .click();
+  await expect(
+    page.getByRole('form', { name: 'Create account', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Username')).toBeVisible();
+  await page
+    .locator('.auth-switch')
+    .getByRole('button', { name: 'Sign in', exact: true })
+    .click();
+  await expect(
+    page.getByRole('form', { name: 'Sign in', exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('simplified-account-navigation.png'),
+    fullPage: true,
+  });
+});
+
 test('keeps drafts and shows validation, password visibility, and throttling errors', async ({
   page,
 }) => {
@@ -179,8 +225,8 @@ test('does not register twice when automatic login is throttled', async ({
   const operations = await mockAuth(page, { loginFailures: 1 });
   await page.goto('/account');
   await page
-    .getByRole('navigation', { name: 'Account navigation' })
-    .getByRole('button', { name: 'Create account' })
+    .getByRole('main')
+    .getByRole('button', { name: 'Create account', exact: true })
     .click();
   await page.getByLabel('Username').fill(account.username);
   await page.getByLabel('Email', { exact: true }).fill(account.email);
@@ -241,8 +287,8 @@ test('does not submit malformed registration input', async ({ page }) => {
   const operations = await mockAuth(page);
   await page.goto('/account');
   await page
-    .getByRole('navigation', { name: 'Account navigation' })
-    .getByRole('button', { name: 'Create account' })
+    .getByRole('main')
+    .getByRole('button', { name: 'Create account', exact: true })
     .click();
   await page.getByLabel('Username').fill('with spaces');
   await page.getByLabel('Email', { exact: true }).fill('bad-email');
