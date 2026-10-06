@@ -129,6 +129,8 @@ Public profile, activity pagination, and account editing contracts are in
 [web profiles and settings](docs/15-web-profiles-and-settings.md).
 Author controls, confirmation, and mutation failure handling are documented in
 [web content editing and deletion](docs/16-web-content-editing-and-deletion.md).
+Authenticated community creation is available from the directory; see
+[web community creation](docs/17-web-community-creation.md).
 
 ## Verification
 

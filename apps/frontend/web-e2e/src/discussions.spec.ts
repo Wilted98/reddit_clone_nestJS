@@ -505,6 +505,98 @@ test('collapses recent visits and subscriptions independently without reloading 
   });
 });
 
+test('remembers both sidebar disclosures across navigation, Back, reload and other tabs', async ({
+  page,
+}, testInfo) => {
+  await mockDiscussion(page);
+  await page.goto('/');
+  const showMobile = async (target: Page) => {
+    if (testInfo.project.name === 'mobile')
+      await target.getByRole('button', { name: 'Community shortcuts' }).click();
+  };
+  await showMobile(page);
+  const recent = page.getByRole('button', {
+    name: 'Recently visited',
+    exact: true,
+  });
+  const joined = page.getByRole('button', {
+    name: 'Your communities',
+    exact: true,
+  });
+  await expect(recent).toHaveAttribute('aria-expanded', 'true');
+  await expect(joined).toHaveAttribute('aria-expanded', 'true');
+  await recent.click();
+  await joined.click();
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Communities', exact: true })
+    .click();
+  await expect(page).toHaveURL('/communities');
+  await showMobile(page);
+  await expect(recent).toHaveAttribute('aria-expanded', 'false');
+  await expect(joined).toHaveAttribute('aria-expanded', 'false');
+  await joined.click();
+  await page.goBack();
+  await showMobile(page);
+  await expect(recent).toHaveAttribute('aria-expanded', 'false');
+  await expect(joined).toHaveAttribute('aria-expanded', 'true');
+  await page.reload();
+  await showMobile(page);
+  await expect(recent).toHaveAttribute('aria-expanded', 'false');
+  await expect(joined).toHaveAttribute('aria-expanded', 'true');
+  const other = await page.context().newPage();
+  try {
+    await mockDiscussion(other);
+    await other.goto('/');
+    await showMobile(other);
+    await expect(
+      other.getByRole('button', { name: 'Recently visited', exact: true }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    await joined.click();
+    await expect(
+      other.getByRole('button', { name: 'Your communities', exact: true }),
+    ).toHaveAttribute('aria-expanded', 'false');
+  } finally {
+    await other.close();
+  }
+});
+
+test('keeps sidebar choices across client navigation when storage is blocked', async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    Storage.prototype.getItem = () => {
+      throw new Error('blocked');
+    };
+    Storage.prototype.setItem = () => {
+      throw new Error('blocked');
+    };
+  });
+  await mockDiscussion(page);
+  await page.goto('/');
+  if (testInfo.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Community shortcuts' }).click();
+  await page
+    .getByRole('button', { name: 'Recently visited', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Your communities', exact: true })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Communities', exact: true })
+    .click();
+  await expect(page).toHaveURL('/communities');
+  if (testInfo.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Community shortcuts' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Recently visited', exact: true }),
+  ).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    page.getByRole('button', { name: 'Your communities', exact: true }),
+  ).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('truncates long sidebar slugs and only reveals the thin scrollbar on hover or focus', async ({
   page,
 }, testInfo) => {

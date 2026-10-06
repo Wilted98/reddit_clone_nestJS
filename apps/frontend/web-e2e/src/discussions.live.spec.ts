@@ -22,18 +22,21 @@ test('publishes, edits, votes and soft-deletes real content with the Nest cookie
   await expect(
     page.getByRole('heading', { name: `Hey, ${username}!` }),
   ).toBeVisible();
-  const communityResponse = await page.request.post(
-    'http://localhost:3001/graphql',
-    {
-      data: {
-        query:
-          'mutation($input: CreateCommunityInput!) { createCommunity(createCommunityInput: $input) { id } }',
-        variables: { input: { name: `Web discussion ${suffix}`, slug } },
-      },
-    },
-  );
-  expect(communityResponse.ok()).toBe(true);
-  expect((await communityResponse.json()).errors).toBeUndefined();
+  await page.goto('/communities/new');
+  await page
+    .getByLabel('Name', { exact: true })
+    .fill(`Web discussion ${suffix}`);
+  await page.getByLabel('Slug', { exact: true }).fill(slug);
+  await page
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(page).toHaveURL(`/r/${slug}`);
+  await expect(
+    page.getByRole('heading', {
+      name: `Web discussion ${suffix}`,
+      exact: true,
+    }),
+  ).toBeVisible();
   let postId: string | undefined;
   let commentId: string | undefined;
   try {

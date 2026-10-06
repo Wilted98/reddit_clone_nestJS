@@ -37,6 +37,12 @@ query SubscribedCommunities($cursor: String, $limit: Int!) {
   }
 }
 
+mutation CreateCommunity($input: CreateCommunityInput!) {
+  createCommunity(createCommunityInput: $input) {
+    ...CommunitySummary
+  }
+}
+
 query BrowseFeed(
   $sort: FeedSort!
   $range: FeedRange!

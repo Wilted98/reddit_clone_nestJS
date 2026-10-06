@@ -1,7 +1,13 @@
 'use client';
 
 import { useQuery } from '@apollo/client/react';
-import { ArrowDown, ArrowUpRight, Compass, UsersRound } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUpRight,
+  Compass,
+  Plus,
+  UsersRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import {
   useCallback,
@@ -136,11 +142,17 @@ export function CommunitiesScreen() {
           className="directory-column"
           aria-labelledby="directory-heading"
         >
-          <div className="page-heading">
-            <span className="section-label">
-              <Compass size={16} />A PLACE FOR EVERY INTEREST
-            </span>
-            <h1 id="directory-heading">Communities</h1>
+          <div className="page-heading directory-heading">
+            <div>
+              <span className="section-label">
+                <Compass size={16} />A PLACE FOR EVERY INTEREST
+              </span>
+              <h1 id="directory-heading">Communities</h1>
+            </div>
+            <Link className="primary-button" href="/communities/new">
+              <Plus size={17} />
+              Create community
+            </Link>
           </div>
           {loading && !data && <QueryLoading label="Loading communities..." />}
           {error && !pending && !pageError && (

@@ -740,6 +740,26 @@ input[readonly] {
 .directory-column {
   min-width: 0;
 }
+.directory-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.community-slug-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.community-slug-field > span {
+  color: #177982;
+  font-weight: 800;
+}
+.community-slug-field input {
+  flex: 1;
+  min-width: 0;
+}
 .page-heading {
   margin-bottom: 22px;
 }

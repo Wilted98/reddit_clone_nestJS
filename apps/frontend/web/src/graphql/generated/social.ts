@@ -13,6 +13,12 @@ export type CreateCommentInput = {
   postId: string;
 };
 
+export type CreateCommunityInput = {
+  description?: string | null | undefined;
+  name: string;
+  slug: string;
+};
+
 export type CreatePostInput = {
   body?: string | null | undefined;
   communitySlug: string;
@@ -112,6 +118,22 @@ export type SubscribedCommunitiesQuery = {
       memberCount: number;
       createdAt: string;
     }>;
+  };
+};
+
+export type CreateCommunityMutationVariables = Exact<{
+  input: CreateCommunityInput;
+}>;
+
+export type CreateCommunityMutation = {
+  createCommunity: {
+    __typename: 'Community';
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    memberCount: number;
+    createdAt: string;
   };
 };
 
@@ -858,6 +880,82 @@ export const SubscribedCommunitiesDocument = {
 } as unknown as DocumentNode<
   SubscribedCommunitiesQuery,
   SubscribedCommunitiesQueryVariables
+>;
+export const CreateCommunityDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'CreateCommunity' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'input' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'CreateCommunityInput' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'createCommunity' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'createCommunityInput' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'input' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'CommunitySummary' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'CommunitySummary' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Community' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'slug' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'description' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'memberCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  CreateCommunityMutation,
+  CreateCommunityMutationVariables
 >;
 export const BrowseFeedDocument = {
   kind: 'Document',
