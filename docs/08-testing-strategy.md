@@ -1,5 +1,31 @@
 # 08 — Testing Strategy
 
+## Root test shortcuts
+
+Run `npm test` for auth, social, and web unit/integration suites, or
+`npm run test:backend` for just the backend suites. Individual applications
+have `test:auth`, `test:social`, and `test:web` shortcuts. Use
+`npm run test:coverage` for coverage reports under `coverage/`.
+Combined unit/coverage commands run at most two Nx tasks in parallel with
+two Jest workers per suite to limit local CPU and memory use.
+These suites do not need running APIs or Postgres. Backend shortcuts generate
+gRPC contracts and Prisma clients first, so backend environment files and
+`protoc` must be configured. Web-only tests generate documents from committed
+GraphQL snapshots and do not require those backend prerequisites.
+
+`npm run test:e2e:backend` runs auth and then social E2E sequentially because
+their Nx-managed service processes share ports. Individual shortcuts are
+`test:e2e:auth` and `test:e2e:social`. Apply committed migrations to the
+required Postgres databases first, and stop normal API development servers.
+No test shortcut starts Docker or applies migrations automatically.
+
+`npm run test:e2e:web` runs mocked desktop/mobile Playwright suites without
+APIs or a database. Install Chromium with `npx playwright install chromium`.
+`npm run test:e2e:web:live` is separate: it needs running auth/social APIs
+and migrated databases. Playwright starts web if needed, or reuses a local
+server on port 4200. `npm run test:e2e` runs both API suites followed by the
+mocked browser suites, not the live browser suite.
+
 ## The pyramid used here
 
 Five layers, each with a different responsibility. Some workflows appear at

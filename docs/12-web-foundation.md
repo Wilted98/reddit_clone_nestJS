@@ -46,11 +46,19 @@ require auth; social operations require social, with auth's internal gRPC
 endpoint available for guarded requests.
 
 ```bash
-npx nx dev web
+npm run dev:web
 ```
 
 Open `http://localhost:4200`. Development output goes to
 `apps/frontend/web/.next-dev`, separate from production build output.
+The web-only shortcut regenerates GraphQL documents from committed snapshots
+without requiring backend environment files, Prisma generation, or `protoc`.
+After completing backend setup, `npm start` (or `npm run dev`) generates all
+contracts/clients and starts auth, social, and web together. Use
+`npm run dev:backend` to start only the two APIs. Do not run these alongside
+existing servers on the same ports. Project generation is explicit rather
+than a `postinstall` hook, so dependency installation works before local
+environment files and `protoc` are configured.
 
 ## Configuration
 
@@ -80,13 +88,15 @@ Install dependencies with `npm ci` and set the browser-facing API URLs before
 building. Stop a development server on port 4200 before starting production:
 
 ```bash
-npx nx build web
-npx nx start web
+npm run build:web
+npm run start:web
 ```
 
 Build output goes to `apps/frontend/web/.next`; the start target serves it on
 port 4200. Build does not require live APIs because Codegen uses committed
 schema snapshots. The running app still needs reachable backend endpoints.
+`start:web` invokes the Nx production start target, which also depends on a
+build. The root `npm start` command is for development, not production.
 
 Web build caching is disabled in Nx so ignored local endpoint overrides cannot
 reuse a bundle built for a different API URL.
@@ -154,8 +164,13 @@ not a server singleton client.
 npx nx run-many -t lint,typecheck,test,build -p web
 npx nx lint web-e2e
 npx playwright install chromium
-npx nx e2e web-e2e
+npm run test:e2e:web
 ```
+
+For unit tests alone, use `npm run test:web`. Root `npm test` includes both
+backend applications too; `npm run test:coverage` includes all three unit/
+integration suites with coverage. See [test shortcuts](08-testing-strategy.md#root-test-shortcuts)
+for prerequisites and API E2E commands.
 
 Unit tests cover validation parity, error mapping, private cache/transport
 behavior, session restoration, stale requests, and successful/failed logout.
@@ -169,7 +184,7 @@ Screenshots/traces go to ignored `test-results/web`; no mock data ships in the a
 With both migrated databases and backend APIs running:
 
 ```bash
-npx nx run web-e2e:e2e-live
+npm run test:e2e:web:live
 ```
 
 The live auth test creates one unique local test account, verifies the real
@@ -182,7 +197,8 @@ and soft-deleted rows remain as test fixtures. Stop unrelated servers on port 42
 Playwright runs reuse an existing development server there.
 
 When no server is running, Playwright starts Next directly and shuts it down
-afterward. The ordinary development command remains `npx nx dev web`.
+afterward. The ordinary development shortcut is `npm run dev:web`; its Nx
+equivalent is `npx nx dev web`.
 
 Run `npm audit` to inspect dependency advisories. Review and retest dependency
 updates before deployment; do not assume a successful build implies a clean

@@ -13,14 +13,15 @@ Profile/editing screens and moderation workflows are not implemented yet.
 
 ## Local setup
 
-Use Node.js 24 LTS (see `.nvmrc`), or 22.15+ within 22.x, npm, and Docker with
-Compose. The frontend codegen tools require the newer Node patch. From the repository root:
+Use Node.js 24 LTS (see `.nvmrc`), or 22.15+ within 22.x, npm, Docker with
+Compose, and the Protocol Buffers compiler (`protoc`) on your `PATH`.
+The frontend codegen tools require the newer Node patch. From the repository root:
 
 ```bash
 npm ci
-npm run generate-ts-proto
 cp apps/backend/auth/.env.example apps/backend/auth/.env
 cp apps/backend/social/.env.example apps/backend/social/.env
+npm run codegen
 docker compose up -d postgres
 docker compose ps
 ```
@@ -46,15 +47,28 @@ create it once before migrating:
 docker compose exec postgres createdb -U roorin roorin_social
 ```
 
-Run each service in a separate terminal:
+Start both backend services together:
 
 ```bash
-npx nx serve auth
+npm run dev:backend
 ```
 
+Or run `npm run dev:auth` and `npm run dev:social` in separate terminals.
+Once environment files and migrated databases are ready, start both backends
+and the web app together with:
+
 ```bash
-npx nx serve social
+npm start
 ```
+
+`npm start` is an alias for `npm run dev`, not a production deployment command.
+Stop the running processes with Ctrl+C before switching startup commands to
+avoid port conflicts. Generation runs before startup; `npm ci` does not run
+project codegen because fresh installs may not have environment files or `protoc` yet.
+`npm run codegen` generates gRPC contracts, both Prisma clients, and web GraphQL
+documents. Prisma generation bypasses Nx's cache so clients inside
+`node_modules` are recreated after a clean install. Generation does not migrate
+databases or require running APIs; web generation uses committed schema snapshots.
 
 GraphQL endpoints are `http://localhost:3000/graphql` (auth) and
 `http://localhost:3001/graphql` (social). Public social queries do not require
@@ -69,7 +83,7 @@ With social running for public browsing and auth running for account operations,
 start the web app from the repository root:
 
 ```bash
-npx nx dev web
+npm run dev:web
 ```
 
 Open `http://localhost:4200`; both backend CORS templates already allow this
@@ -80,10 +94,22 @@ The frontend uses the existing httpOnly auth cookie, not a separate
 auth system or localStorage tokens. Endpoint overrides are documented in
 `apps/frontend/web/.env.example`; put local values in `.env.local`.
 
+For a production web build/start (with appropriately configured backend APIs):
+
+```bash
+npm run build:web
+npm run start:web
+```
+
+`start:web` serves the production app on port 4200 and runs its Nx build
+dependency first. `npm run build` builds all three applications; it does not
+start services or apply migrations. See [production web setup](docs/12-web-foundation.md#production-build-and-start)
+for endpoint, HTTPS, CORS, and cookie configuration.
+
 ```bash
 npx nx run-many -t lint,typecheck,test,build -p web
 npx playwright install chromium
-npx nx e2e web-e2e
+npm run test:e2e:web
 ```
 
 Codegen/build/unit tests use committed schema snapshots and do not need live
@@ -98,15 +124,36 @@ Posting, bounded replies, and vote-state handling are documented in
 
 ## Verification
 
+Run commands from the repository root:
+
+| Command                                          | Scope                                        | Runtime requirements                                  |
+| ------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------- |
+| `npm test`                                       | Auth, social, and web unit/integration tests | No running APIs or database                           |
+| `npm run test:backend`                           | Auth and social unit/integration tests       | No running APIs or database                           |
+| `npm run test:auth` / `test:social` / `test:web` | One application's unit/integration tests     | No running APIs or database                           |
+| `npm run test:coverage`                          | Unit/integration suites with coverage        | No running APIs or database                           |
+| `npm run test:e2e:backend`                       | Auth then social API E2E                     | Migrated Postgres databases; Nx starts APIs           |
+| `npm run test:e2e:auth` / `test:e2e:social`      | One API E2E suite                            | Migrated database(s); Nx starts APIs                  |
+| `npm run test:e2e:web`                           | Mocked desktop/mobile browser tests          | Playwright Chromium; no APIs or database              |
+| `npm run test:e2e:web:live`                      | Live browser smoke tests                     | Playwright Chromium, running APIs, migrated databases |
+| `npm run test:e2e`                               | API E2E, then mocked browser tests           | Migrated databases and Playwright Chromium            |
+
+Backend test shortcuts regenerate gRPC contracts and Prisma clients; configure
+backend `.env` files and `protoc` first, even for database-free unit tests.
+Web-only shortcuts use committed GraphQL snapshots and need neither.
+Install browser binaries once with `npx playwright install chromium`.
+Coverage reports are written under `coverage/`. `npm test` deliberately does
+not include E2E; `test:e2e` deliberately excludes the live browser suite,
+which requires manually running APIs instead of Nx-managed E2E servers.
+
 Apply new committed migrations after switching branches or pulling updates.
 Social E2E starts the services but does not migrate its database:
 
 ```bash
 npx nx run social:deploy-prisma
 npx nx run-many -t lint -p auth,social,auth-e2e,social-e2e
-npx nx run-many -t test,build -p auth,social
-npx nx e2e auth-e2e
-npx nx e2e social-e2e
+npm run test:backend
+npm run test:e2e:backend
 ```
 
 Unit specs use mocks and do not require Postgres. E2E tests need both databases
@@ -117,7 +164,8 @@ to 1000 for test fixtures only. `social-e2e` also starts social. Normal
 60 seconds; optional overrides are in auth's `.env.example`. Do not deploy
 the E2E server target. Low-limit HTTP integration tests run with `nx test auth`.
 Run E2E targets separately with normal development servers stopped to avoid
-port conflicts.
+port conflicts. The combined API shortcut runs the two suites sequentially
+to avoid sharing server ports between concurrent Nx invocations.
 
 ## Documentation
 
