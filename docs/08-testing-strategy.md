@@ -70,6 +70,11 @@ profile patches and validation, avatar fallback, pending-write serialization,
 session identity and late-save protection. Browser tests cover independent
 author activity pages, explicit retries, profile privacy, and real profile
 saves in the optional live suite. See [web profile verification](15-web-profiles-and-settings.md#verification).
+Content-control specs cover author checks, trimmed/typed edit payloads,
+pending-write locks, failed drafts, confirmation, and late responses. Browser
+coverage verifies retained pages/replies, tombstones, session expiry, and
+community link hover/focus feedback; the live discussion smoke test edits and
+deletes through the UI. See [web content verification](16-web-content-editing-and-deletion.md#verification).
 
 ### Profile privacy and authentication rate limits
 

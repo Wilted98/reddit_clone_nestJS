@@ -24,6 +24,18 @@ export type FeedRange = 'ALL' | 'DAY' | 'MONTH' | 'WEEK';
 
 export type FeedSort = 'HOT' | 'NEW' | 'TOP';
 
+export type UpdateCommentInput = {
+  body: string;
+  id: string;
+};
+
+export type UpdatePostInput = {
+  body?: string | null | undefined;
+  id: string;
+  title?: string | null | undefined;
+  url?: string | null | undefined;
+};
+
 export type VoteInput = {
   targetId: string;
   value: number;
@@ -305,6 +317,94 @@ export type PublishCommentMutationVariables = Exact<{
 
 export type PublishCommentMutation = {
   createComment: {
+    __typename: 'Comment';
+    id: string;
+    postId: string;
+    parentId: string | null;
+    authorId: string;
+    authorUsername: string;
+    body: string;
+    createdAt: string;
+    editedAt: string | null;
+    deletedAt: string | null;
+    score: number;
+    hasReplies: boolean;
+  };
+};
+
+export type EditPostMutationVariables = Exact<{
+  input: UpdatePostInput;
+}>;
+
+export type EditPostMutation = {
+  updatePost: {
+    __typename: 'Post';
+    id: string;
+    title: string;
+    body: string | null;
+    url: string | null;
+    authorId: string;
+    authorUsername: string;
+    communityId: string;
+    communitySlug: string;
+    createdAt: string;
+    editedAt: string | null;
+    deletedAt: string | null;
+    score: number;
+    commentCount: number;
+  };
+};
+
+export type RemovePostMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type RemovePostMutation = {
+  deletePost: {
+    __typename: 'Post';
+    id: string;
+    title: string;
+    body: string | null;
+    url: string | null;
+    authorId: string;
+    authorUsername: string;
+    communityId: string;
+    communitySlug: string;
+    createdAt: string;
+    editedAt: string | null;
+    deletedAt: string | null;
+    score: number;
+    commentCount: number;
+  };
+};
+
+export type EditCommentMutationVariables = Exact<{
+  input: UpdateCommentInput;
+}>;
+
+export type EditCommentMutation = {
+  updateComment: {
+    __typename: 'Comment';
+    id: string;
+    postId: string;
+    parentId: string | null;
+    authorId: string;
+    authorUsername: string;
+    body: string;
+    createdAt: string;
+    editedAt: string | null;
+    deletedAt: string | null;
+    score: number;
+    hasReplies: boolean;
+  };
+};
+
+export type RemoveCommentMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type RemoveCommentMutation = {
+  deleteComment: {
     __typename: 'Comment';
     id: string;
     postId: string;
@@ -1565,6 +1665,319 @@ export const PublishCommentDocument = {
 } as unknown as DocumentNode<
   PublishCommentMutation,
   PublishCommentMutationVariables
+>;
+export const EditPostDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'EditPost' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'input' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'UpdatePostInput' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'updatePost' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'updatePostInput' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'input' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'DiscussionPost' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'DiscussionPost' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Post' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'body' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'deletedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'score' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'commentCount' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<EditPostMutation, EditPostMutationVariables>;
+export const RemovePostDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'RemovePost' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'String' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'deletePost' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'id' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'DiscussionPost' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'DiscussionPost' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Post' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'body' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'deletedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'score' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'commentCount' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<RemovePostMutation, RemovePostMutationVariables>;
+export const EditCommentDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'EditComment' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'input' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'UpdateCommentInput' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'updateComment' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'updateCommentInput' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'input' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'DiscussionComment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'DiscussionComment' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Comment' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'postId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'parentId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'body' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'deletedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'score' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'hasReplies' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<EditCommentMutation, EditCommentMutationVariables>;
+export const RemoveCommentDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'RemoveComment' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'String' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'deleteComment' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'id' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'DiscussionComment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'DiscussionComment' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Comment' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'postId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'parentId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'body' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'deletedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'score' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'hasReplies' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  RemoveCommentMutation,
+  RemoveCommentMutationVariables
 >;
 export const JoinForPostingDocument = {
   kind: 'Document',

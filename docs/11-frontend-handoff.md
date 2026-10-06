@@ -3,7 +3,7 @@
 The core discussion APIs are implemented. The Next.js web app supports account
 sessions, public feed/community browsing, post composition, bounded discussions,
 and voting, public profiles/activity, and own bio/avatar settings. Content
-editing/deletion screens remain frontend work. See
+editing/deletion are implemented on discussions and own profile activity. See
 [web foundation](12-web-foundation.md) for setup and
 [web social browsing](13-web-feeds-and-communities.md) for pagination and rendering,
 and [web discussions](14-web-posts-discussions-and-voting.md) for write workflows.
@@ -81,8 +81,9 @@ the original text/link type. Comment editing requires a new body. Show edit
 and delete actions for live content when `me.id === authorId`; the server
 still enforces this permission. Leaving a community does not remove an
 author's right to edit existing content. Concurrent edits are last-writer-wins
-for supplied fields, not versioned history. Refresh affected lists after a
-mutation; don't optimistically restore content deleted by another request.
+for supplied fields, not versioned history. Apply confirmed mutation responses
+to affected rows and refresh counters separately; don't optimistically restore
+content deleted by another request. Reload/navigation reads fresh lists.
 
 ## Errors and session state
 
@@ -109,7 +110,8 @@ may be HTTP 400 and have a different shape, so keep a generic fallback.
 2. Feed + community browsing (implemented).
 3. Post composition/discussions + voting (implemented).
 4. Public profile/activity + own bio/avatar settings (implemented).
-5. Author-only post/comment editing and deletion (frontend work remaining).
+5. Author-only post/comment editing and deletion on discussions and own profiles
+   ([content controls](16-web-content-editing-and-deletion.md)).
 
 Membership context + community settings are the next backend batch and can
 be built alongside the community UI. Moderation + bounded search follow when

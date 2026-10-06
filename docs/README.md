@@ -38,3 +38,7 @@ threads, private vote restoration, mutation safety, and browser verification.
 [`15-web-profiles-and-settings.md`](15-web-profiles-and-settings.md) documents
 public profiles, independent activity pagination, caller-scoped bio/avatar
 editing, avatar safety, privacy, and verification.
+
+[`16-web-content-editing-and-deletion.md`](16-web-content-editing-and-deletion.md)
+documents author controls, text/link edits, deletion confirmation, retained
+threads, mutation/session safety, and verification.

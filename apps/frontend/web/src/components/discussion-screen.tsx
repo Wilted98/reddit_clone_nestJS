@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import {
   DiscussionCommentFragment,
+  DiscussionPostFragment,
   DiscussionDocument,
   ThreadCommentsDocument,
 } from '../graphql/generated/social';
@@ -22,6 +23,7 @@ import { isNotFound } from '../lib/errors';
 import { appendUnique } from '../lib/feed';
 import { AppShell } from './app-shell';
 import { CommentForm } from './comment-form';
+import { ContentActions } from './content-actions';
 import { PostCard } from './post-card';
 import { QueryError, QueryLoading } from './query-feedback';
 import { SocialRail } from './social-rail';
@@ -36,7 +38,7 @@ export function DiscussionScreen({ id }: { id: string }) {
             <ArrowLeft size={17} />
             Back to feed
           </Link>
-          <DiscussionContent id={id} />
+          <DiscussionContent key={id} id={id} />
         </section>
         <SocialRail />
       </main>
@@ -45,6 +47,10 @@ export function DiscussionScreen({ id }: { id: string }) {
 }
 
 function DiscussionContent({ id }: { id: string }) {
+  const [changed, setChanged] = useState<Pick<
+    DiscussionPostFragment,
+    'title' | 'body' | 'url' | 'editedAt' | 'deletedAt'
+  > | null>(null);
   const { data, loading, error, refetch } = useQuery(DiscussionDocument, {
     variables: { id },
     fetchPolicy: 'no-cache',
@@ -70,7 +76,7 @@ function DiscussionContent({ id }: { id: string }) {
       );
     return null;
   }
-  const post = data.post;
+  const post = data.post.deletedAt ? data.post : { ...data.post, ...changed };
   function refreshCount() {
     void refetch().catch(() => undefined);
   }
@@ -82,6 +88,22 @@ function DiscussionContent({ id }: { id: string }) {
       <VoteGroup kind="post" ids={[id]}>
         <PostCard
           detail
+          footer={
+            <ContentActions
+              kind="post"
+              item={post}
+              onChanged={(item) => {
+                if ('title' in item)
+                  setChanged({
+                    title: item.title,
+                    body: item.body,
+                    url: item.url,
+                    editedAt: item.editedAt,
+                    deletedAt: item.deletedAt,
+                  });
+              }}
+            />
+          }
           post={
             post.deletedAt
               ? { ...post, title: '[Deleted post]', body: null, url: null }
@@ -149,13 +171,31 @@ function CommentList({
     },
   );
   const [added, setAdded] = useState<DiscussionCommentFragment[]>([]);
+  const [changed, setChanged] = useState<
+    Record<
+      string,
+      Pick<DiscussionCommentFragment, 'body' | 'editedAt' | 'deletedAt'>
+    >
+  >({});
   const [pending, setPending] = useState(false);
   const [pageError, setPageError] = useState<unknown>(null);
   const lock = useRef(false);
   const items = appendUnique(
     [...externalAdded, ...added],
     data?.comments.items ?? [],
-  );
+  ).map((item) => (item.deletedAt ? item : { ...item, ...changed[item.id] }));
+  function updated(item: DiscussionCommentFragment | DiscussionPostFragment) {
+    if ('title' in item) return;
+    setChanged((previous) => ({
+      ...previous,
+      [item.id]: {
+        body: item.body,
+        editedAt: item.editedAt,
+        deletedAt: item.deletedAt,
+      },
+    }));
+    onCreated();
+  }
   function created(comment: DiscussionCommentFragment) {
     setAdded((previous) => [comment, ...previous]);
     onCreated();
@@ -217,6 +257,7 @@ function CommentList({
             depth={depth}
             disabled={disabled}
             onCreated={onCreated}
+            onChanged={updated}
           />
         ))}
       </VoteGroup>
@@ -254,11 +295,13 @@ function CommentItem({
   depth,
   disabled,
   onCreated,
+  onChanged,
 }: {
   comment: DiscussionCommentFragment;
   depth: number;
   disabled: boolean;
   onCreated: () => void;
+  onChanged: (item: DiscussionCommentFragment | DiscussionPostFragment) => void;
 }) {
   const [replying, setReplying] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -329,7 +372,8 @@ function CommentItem({
           </button>
         )}
       </div>
-      {replying && (
+      <ContentActions kind="comment" item={comment} onChanged={onChanged} />
+      {replying && !disabled && (
         <CommentForm
           postId={comment.postId}
           parentId={comment.id}

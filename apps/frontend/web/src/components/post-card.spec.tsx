@@ -35,6 +35,9 @@ describe('post cards', () => {
       'href',
       '/r/craft',
     );
+    expect(screen.getByRole('link', { name: 'r/craft' })).toHaveClass(
+      'community-link',
+    );
     expect(screen.getByRole('link', { name: 'u/alex' })).toHaveAttribute(
       'href',
       '/u/alex',

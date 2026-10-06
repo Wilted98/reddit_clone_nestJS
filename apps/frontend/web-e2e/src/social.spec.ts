@@ -781,6 +781,218 @@ test('retries an initial feed failure without exposing server internals', async 
   await expect(page.getByRole('article')).toHaveCount(3);
 });
 
+const fullCommunityPage = Array.from({ length: 20 }, (_, index) => ({
+  ...communities[0],
+  id: `directory-${index}`,
+  slug: `directory-${index}`,
+  name: `Community ${index}`,
+}));
+
+test('automatically loads communities with the post loader without moving the reading position', async ({
+  page,
+}, testInfo) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const operations = await mockAPIs(
+    page,
+    async ({ operationName, variables }) => {
+      if (operationName !== 'BrowseCommunities' || variables.limit !== 20)
+        return {};
+      if (!variables.cursor)
+        return {
+          data: {
+            communities: communityPage(fullCommunityPage, true, 'directory-19'),
+          },
+        };
+      await gate;
+      return {
+        data: {
+          communities: communityPage([
+            fullCommunityPage[19],
+            communities[1],
+            communities[2],
+          ]),
+        },
+      };
+    },
+    { autoLoad: true },
+  );
+  await page.goto('/communities');
+  const cards = page.locator('.community-grid .community-card');
+  await expect(cards).toHaveCount(20);
+  const requests = () =>
+    operations.filter(
+      (op) =>
+        op.operationName === 'BrowseCommunities' && op.variables.limit === 20,
+    );
+  expect(requests()).toHaveLength(1);
+  await page
+    .locator('.directory-column .feed-sentinel')
+    .scrollIntoViewIfNeeded();
+  const loader = page
+    .getByRole('status')
+    .filter({ hasText: 'Loading more communities...' });
+  await expect(loader).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Loading...' })).toBeDisabled();
+  await expect(cards).toHaveCount(20);
+  const position = await page.evaluate(() => window.scrollY);
+  const anchor = await cards.last().boundingBox();
+  await page.screenshot({
+    path: testInfo.outputPath('community-pagination-loader.png'),
+  });
+  release();
+  await expect(cards).toHaveCount(22);
+  await expect(loader).toHaveCount(0);
+  await expect(page.getByText('All communities loaded.')).toBeAttached();
+  expect(await page.evaluate(() => window.scrollY)).toBeCloseTo(position, 0);
+  expect((await cards.nth(19).boundingBox())?.y).toBeCloseTo(
+    anchor?.y ?? -1,
+    0,
+  );
+  expect(requests().map((op) => op.variables.cursor ?? null)).toEqual([
+    null,
+    'directory-19',
+  ]);
+  await expect(cards.nth(20)).not.toBeFocused();
+});
+
+test('keeps the communities loader visible for fast final pages and focuses manual results', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mockAPIs(page, ({ operationName, variables }) => {
+    if (operationName !== 'BrowseCommunities' || variables.limit !== 20)
+      return {};
+    return {
+      data: {
+        communities: variables.cursor
+          ? communityPage([communities[1], communities[2]])
+          : communityPage(communities.slice(0, 2), true, 'romania'),
+      },
+    };
+  });
+  await page.goto('/communities');
+  const timing = page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        let startedAt: number | null = null;
+        const observer = new MutationObserver(() => {
+          const loader = document.querySelector(
+            '.directory-column .feed-page-loading',
+          );
+          if (loader && startedAt === null) startedAt = performance.now();
+          if (!loader && startedAt !== null) {
+            observer.disconnect();
+            resolve(performance.now() - startedAt);
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+      }),
+  );
+  await page.getByRole('button', { name: 'Load more communities' }).click();
+  const loader = page
+    .getByRole('status')
+    .filter({ hasText: 'Loading more communities...' });
+  await expect(loader).toBeVisible();
+  expect(
+    await loader
+      .locator('svg')
+      .evaluate((node) => getComputedStyle(node).animationName),
+  ).toBe('none');
+  await expect(page.locator('.community-grid .community-card')).toHaveCount(2);
+  await expect(
+    page.locator('.community-card[data-community-id="nightowls"]'),
+  ).toBeFocused();
+  expect(await timing).toBeGreaterThanOrEqual(600);
+  await expect(page.getByText('All communities loaded.')).toBeAttached();
+});
+
+test('pauses automatic community loading after a failure and retries the same cursor explicitly', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await mockAPIs(
+    page,
+    ({ operationName, variables }) => {
+      if (operationName !== 'BrowseCommunities' || variables.limit !== 20)
+        return {};
+      if (!variables.cursor)
+        return {
+          data: {
+            communities: communityPage(fullCommunityPage, true, 'directory-19'),
+          },
+        };
+      return ++attempts === 1
+        ? failure(500)
+        : { data: { communities: communityPage([communities[1]]) } };
+    },
+    { autoLoad: true },
+  );
+  await page.goto('/communities');
+  await expect(page.locator('.community-grid .community-card')).toHaveCount(20);
+  await page
+    .locator('.directory-column .feed-sentinel')
+    .scrollIntoViewIfNeeded();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.waitForTimeout(900);
+  expect(attempts).toBe(1);
+  await expect(page.locator('.community-grid .community-card')).toHaveCount(20);
+  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(page.locator('.community-grid .community-card')).toHaveCount(21);
+  expect(attempts).toBe(2);
+});
+
+for (const progress of ['duplicates', 'repeated cursor'] as const) {
+  test(`stops automatic community loading on ${progress}`, async ({ page }) => {
+    let attempts = 0;
+    await mockAPIs(
+      page,
+      ({ operationName, variables }) => {
+        if (operationName !== 'BrowseCommunities' || variables.limit !== 20)
+          return {};
+        if (!variables.cursor)
+          return {
+            data: {
+              communities: communityPage(
+                communities.slice(0, 1),
+                true,
+                'craft',
+              ),
+            },
+          };
+        attempts++;
+        return {
+          data: {
+            communities: communityPage(
+              progress === 'duplicates'
+                ? communities.slice(0, 1)
+                : communities.slice(1, 2),
+              true,
+              progress === 'duplicates' ? 'romania' : 'craft',
+            ),
+          },
+        };
+      },
+      { autoLoad: true },
+    );
+    await page.goto('/communities');
+    await page
+      .locator('.directory-column .feed-sentinel')
+      .scrollIntoViewIfNeeded();
+    await expect.poll(() => attempts).toBe(1);
+    await expect(
+      page.getByRole('button', { name: 'Load more communities' }),
+    ).toBeEnabled();
+    await page.waitForTimeout(900);
+    expect(attempts).toBe(1);
+    await expect(page.locator('.community-grid .community-card')).toHaveCount(
+      progress === 'duplicates' ? 1 : 2,
+    );
+  });
+}
+
 test('loads and deduplicates community pages and opens the scoped community feed', async ({
   page,
 }) => {

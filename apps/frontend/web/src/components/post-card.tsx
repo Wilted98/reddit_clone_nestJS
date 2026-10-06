@@ -11,10 +11,12 @@ export function PostCard({
   post,
   detail = false,
   children,
+  footer,
 }: {
   post: BrowseFeedQuery['feed']['items'][number];
   detail?: boolean;
   children?: ReactNode;
+  footer?: ReactNode;
 }) {
   const link = safeExternalLink(post.url);
   return (
@@ -31,7 +33,10 @@ export function PostCard({
             <strong>u/{post.authorUsername}</strong>
           </Link>
           <span className="post-origin">
-            <Link href={`/r/${encodeURIComponent(post.communitySlug)}`}>
+            <Link
+              className="community-link"
+              href={`/r/${encodeURIComponent(post.communitySlug)}`}
+            >
               r/{post.communitySlug}
             </Link>
             <span aria-hidden="true"> · </span>
@@ -97,6 +102,7 @@ export function PostCard({
           </>
         )}
       </div>
+      {footer}
     </article>
   );
 }

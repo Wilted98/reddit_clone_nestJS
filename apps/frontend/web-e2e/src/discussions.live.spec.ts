@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('publishes, comments, votes and restores real vote state with the Nest cookie', async ({
+test('publishes, edits, votes and soft-deletes real content with the Nest cookie', async ({
   page,
 }) => {
   const suffix = Date.now().toString(36);
@@ -84,6 +84,93 @@ test('publishes, comments, votes and restores real vote state with the Nest cook
       comment.getByRole('button', { name: 'Upvote comment' }),
     ).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByText(email, { exact: true })).toHaveCount(0);
+    const discussionPost = page.getByTestId(`post-${postId}`);
+    await discussionPost
+      .getByRole('button', { name: 'Post options', exact: true })
+      .click();
+    await discussionPost
+      .getByRole('button', { name: 'Edit post', exact: true })
+      .click();
+    await discussionPost
+      .getByLabel('Title', { exact: true })
+      .fill('An edited real web discussion');
+    await discussionPost.getByRole('button', { name: 'Save changes' }).click();
+    await expect(discussionPost.getByRole('heading')).toHaveText(
+      'An edited real web discussion',
+    );
+    await comment
+      .getByRole('button', { name: 'Comment options', exact: true })
+      .click();
+    await comment
+      .getByRole('button', { name: 'Edit comment', exact: true })
+      .click();
+    await comment
+      .getByLabel('Comment', { exact: true })
+      .fill('An edited real comment.');
+    await comment.getByRole('button', { name: 'Save changes' }).click();
+    await expect(comment.locator(':scope > .comment-body')).toHaveText(
+      'An edited real comment.',
+    );
+    await page.reload();
+    await expect(discussionPost.getByRole('heading')).toHaveText(
+      'An edited real web discussion',
+    );
+    await expect(comment.locator(':scope > .comment-body')).toHaveText(
+      'An edited real comment.',
+    );
+    await page.goto(`/u/${username}`);
+    await discussionPost
+      .getByRole('button', { name: 'Post options', exact: true })
+      .click();
+    await discussionPost
+      .getByRole('button', { name: 'Edit post', exact: true })
+      .click();
+    await discussionPost
+      .getByLabel('Title', { exact: true })
+      .fill('A profile-edited real discussion');
+    await discussionPost.getByRole('button', { name: 'Save changes' }).click();
+    await expect(discussionPost.getByRole('heading')).toHaveText(
+      'A profile-edited real discussion',
+    );
+    await page
+      .getByRole('navigation', { name: 'Profile activity' })
+      .getByRole('link', { name: 'Comments', exact: true })
+      .click();
+    const activityComment = page.getByTestId(`activity-comment-${commentId}`);
+    await activityComment
+      .getByRole('button', { name: 'Comment options', exact: true })
+      .click();
+    await activityComment
+      .getByRole('button', { name: 'Edit comment', exact: true })
+      .click();
+    await activityComment
+      .getByLabel('Comment', { exact: true })
+      .fill('A profile-edited real comment.');
+    await activityComment.getByRole('button', { name: 'Save changes' }).click();
+    await expect(activityComment.locator(':scope > .comment-body')).toHaveText(
+      'A profile-edited real comment.',
+    );
+    await activityComment
+      .getByRole('button', { name: 'Comment options', exact: true })
+      .click();
+    await activityComment
+      .getByRole('button', { name: 'Delete comment', exact: true })
+      .click();
+    await activityComment
+      .getByRole('button', { name: 'Confirm delete comment', exact: true })
+      .click();
+    await expect(activityComment).toHaveCount(0);
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'No comments yet', exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole('navigation', { name: 'Profile activity' })
+      .getByRole('link', { name: 'Posts', exact: true })
+      .click();
+    await expect(discussionPost.getByRole('heading')).toHaveText(
+      'A profile-edited real discussion',
+    );
     await page.goto('/?sort=NEW');
     await expect(
       page
@@ -106,6 +193,59 @@ test('publishes, comments, votes and restores real vote state with the Nest cook
       .getByRole('button', { name: 'Upvote post', exact: true })
       .click();
     await expect(feedPost.getByLabel('1 score')).toBeVisible();
+    await feedPost
+      .getByRole('link', {
+        name: 'A profile-edited real discussion',
+        exact: true,
+      })
+      .click();
+    await expect(comment.locator(':scope > .comment-body')).toHaveText(
+      '[deleted]',
+    );
+    await expect(
+      discussionPost.getByRole('link', { name: '1 comments', exact: true }),
+    ).toBeVisible();
+    await discussionPost
+      .getByRole('button', { name: 'Post options', exact: true })
+      .click();
+    await discussionPost
+      .getByRole('button', { name: 'Delete post', exact: true })
+      .click();
+    await discussionPost
+      .getByRole('button', { name: 'Confirm delete post', exact: true })
+      .click();
+    await expect(discussionPost.getByRole('heading', { level: 1 })).toHaveText(
+      '[Deleted post]',
+    );
+    await page.reload();
+    await expect(discussionPost.getByRole('heading', { level: 1 })).toHaveText(
+      '[Deleted post]',
+    );
+    await expect(page.getByLabel('Add a comment')).toHaveCount(0);
+    await page.goto(`/submit?${new URLSearchParams({ community: slug })}`);
+    await page
+      .getByLabel('Title', { exact: true })
+      .fill('A post deleted from my profile');
+    await page.getByLabel('Your post').fill('Checking profile deletion.');
+    await page.getByRole('button', { name: 'Publish post' }).click();
+    await expect(page).toHaveURL(/\/posts\//);
+    postId = new URL(page.url()).pathname.split('/')[2];
+    await page.goto(`/u/${username}`);
+    const profilePost = page.getByTestId(`post-${postId}`);
+    await profilePost
+      .getByRole('button', { name: 'Post options', exact: true })
+      .click();
+    await profilePost
+      .getByRole('button', { name: 'Delete post', exact: true })
+      .click();
+    await profilePost
+      .getByRole('button', { name: 'Confirm delete post', exact: true })
+      .click();
+    await expect(profilePost).toHaveCount(0);
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'No posts yet', exact: true }),
+    ).toBeVisible();
   } finally {
     for (const [operation, id] of [
       ['deleteComment', commentId],

@@ -15,7 +15,11 @@ export function SocialRail() {
     { variables: { limit: 5 }, fetchPolicy: 'no-cache', ssr: false },
   );
   return (
-    <aside className="social-rail" aria-label="Community discovery">
+    <aside
+      className="social-rail"
+      aria-label="Community discovery"
+      tabIndex={0}
+    >
       <section className="rail-welcome">
         <div className="rail-photo">
           <Image

@@ -14,6 +14,8 @@ are in [web discussions](14-web-posts-discussions-and-voting.md).
 Public profiles live at `/u/[username]`; own bio/avatar settings live in
 `/account#profile-settings`. Their privacy, activity, and image contracts are
 in [web profiles/settings](15-web-profiles-and-settings.md).
+Discussion author controls and mutation safety are documented in
+[web content editing/deletion](16-web-content-editing-and-deletion.md).
 
 ## Stack
 

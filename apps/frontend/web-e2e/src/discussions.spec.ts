@@ -425,6 +425,158 @@ test('shows real subscribed communities with independent paging, deduplication a
   await expect(page).toHaveURL('/r/romania');
 });
 
+test('collapses recent visits and subscriptions independently without reloading their pages', async ({
+  page,
+}, testInfo) => {
+  const longSlug = 'a_very_long_community_slug_name';
+  const operations = await mockDiscussion(page, ({ operationName }) =>
+    operationName === 'SubscribedCommunities'
+      ? {
+          data: {
+            myCommunities: {
+              items: [community, { ...community, id: 'long', slug: longSlug }],
+              hasMore: false,
+              nextCursor: null,
+            },
+          },
+        }
+      : {},
+  );
+  await page.goto('/r/craft');
+  await expect(
+    page.getByRole('heading', { name: community.name, exact: true }),
+  ).toBeVisible();
+  if (testInfo.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Community shortcuts' }).click();
+  const recent = page.getByRole('region', {
+    name: 'Recently visited communities',
+  });
+  const joined = page.getByRole('region', { name: 'Subscribed communities' });
+  const recentToggle = recent.getByRole('button', {
+    name: 'Recently visited',
+    exact: true,
+  });
+  const joinedToggle = joined.getByRole('button', {
+    name: 'Your communities',
+    exact: true,
+  });
+  await expect(
+    recent.getByRole('link', { name: 'r/craft', exact: true }),
+  ).toBeVisible();
+  await expect(
+    joined.getByRole('link', { name: 'r/craft', exact: true }),
+  ).toBeVisible();
+  const count = operations.filter(
+    (op) => op.operationName === 'SubscribedCommunities',
+  ).length;
+  await joinedToggle.click();
+  await expect(joinedToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(joined.locator('.shortcut-list')).toBeHidden();
+  await expect(
+    recent.getByRole('link', { name: 'r/craft', exact: true }),
+  ).toBeVisible();
+  await recentToggle.click();
+  await expect(recentToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(recent.locator('.shortcut-list')).toBeHidden();
+  await joinedToggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    joined.getByRole('link', { name: 'r/craft', exact: true }),
+  ).toBeVisible();
+  await expect(recent.locator('.shortcut-list')).toBeHidden();
+  await recentToggle.click();
+  await expect(
+    recent.getByRole('link', { name: 'r/craft', exact: true }),
+  ).toBeVisible();
+  expect(
+    operations.filter((op) => op.operationName === 'SubscribedCommunities'),
+  ).toHaveLength(count);
+  const longLabel = joined.locator('.shortcut-label').last();
+  expect(
+    await longLabel.evaluate((node) => node.scrollWidth > node.clientWidth),
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+  await page.screenshot({
+    path: testInfo.outputPath('community-disclosures.png'),
+  });
+});
+
+test('truncates long sidebar slugs and only reveals the thin scrollbar on hover or focus', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'desktop',
+    'Desktop hover scrollbar only',
+  );
+  await page.setViewportSize({ width: 1440, height: 650 });
+  const slug = 'a_very_long_community_slug_name';
+  await mockDiscussion(page, ({ operationName }) =>
+    operationName === 'SubscribedCommunities'
+      ? {
+          data: {
+            myCommunities: {
+              items: Array.from({ length: 20 }, (_, i) => ({
+                ...community,
+                id: `long-${i}`,
+                slug: `${slug}_${i}`,
+              })),
+              hasMore: false,
+              nextCursor: null,
+            },
+          },
+        }
+      : {},
+  );
+  await page.goto('/');
+  const sidebar = page.locator('.sidebar');
+  const labels = sidebar.locator('.shortcut-label');
+  await expect(labels).toHaveCount(20);
+  expect(
+    await labels.first().evaluate((node) => ({
+      truncated: node.scrollWidth > node.clientWidth,
+      ellipsis: getComputedStyle(node).textOverflow,
+    })),
+  ).toEqual({ truncated: true, ellipsis: 'ellipsis' });
+  await expect(labels.first().locator('..')).toHaveAttribute(
+    'title',
+    `r/${slug}_0 - ${community.name}`,
+  );
+  const metrics = () =>
+    sidebar.evaluate((node) => ({
+      width: node.clientWidth,
+      horizontal: node.scrollWidth > node.clientWidth,
+      overflowing: node.scrollHeight > node.clientHeight,
+      color: getComputedStyle(node).scrollbarColor,
+      thickness: getComputedStyle(node).scrollbarWidth,
+    }));
+  await page.mouse.move(1000, 100);
+  const idle = await metrics();
+  expect(idle.horizontal).toBe(false);
+  expect(idle.overflowing).toBe(true);
+  expect(idle.thickness).toBe('thin');
+  expect(idle.color).toBe('rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)');
+  await sidebar.hover();
+  expect((await metrics()).color).toBe('rgb(182, 190, 200) rgba(0, 0, 0, 0)');
+  expect((await metrics()).width).toBe(idle.width);
+  await page.screenshot({
+    path: testInfo.outputPath('sidebar-truncated-names.png'),
+  });
+  await sidebar
+    .getByRole('button', { name: 'Your communities', exact: true })
+    .focus();
+  await page.mouse.move(1000, 100);
+  expect((await metrics()).color).toBe('rgb(182, 190, 200) rgba(0, 0, 0, 0)');
+  await labels.last().scrollIntoViewIfNeeded();
+  expect(await sidebar.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  await page.screenshot({
+    path: testInfo.outputPath('sidebar-truncated-scrollbar.png'),
+  });
+});
+
 test('keeps the desktop sidebar viewport-height on a long feed and scrolls overflowing shortcuts independently', async ({
   page,
 }, testInfo) => {
@@ -477,6 +629,119 @@ test('keeps the desktop sidebar viewport-height on a long feed and scrolls overf
   ).toBeInViewport();
   expect(await sidebar.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
   await page.screenshot({ path: testInfo.outputPath('fixed-sidebar.png') });
+});
+
+test('keeps the topbar and discovery rail visible without overlapping posts while scrolling', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'desktop',
+    'Sticky chrome is desktop/tablet only.',
+  );
+  await mockDiscussion(page, ({ operationName }) => {
+    if (operationName === 'BrowseFeed')
+      return {
+        data: {
+          feed: {
+            items: Array.from({ length: 20 }, (_, i) => ({
+              ...originalPost,
+              id: `sticky-${i}`,
+            })),
+            hasMore: false,
+            nextCursor: null,
+          },
+        },
+      };
+    if (operationName === 'BrowseCommunities')
+      return {
+        data: {
+          communities: {
+            items: Array.from({ length: 5 }, (_, i) => ({
+              ...community,
+              id: `sticky_${i}`,
+              slug: `sticky_${i}`,
+            })),
+            hasMore: false,
+            nextCursor: null,
+          },
+        },
+      };
+    return {};
+  });
+  for (const width of [1440, 1180, 900]) {
+    await page.setViewportSize({ width, height: 650 });
+    await page.goto('/');
+    await expect(page.getByRole('article')).toHaveCount(20);
+    const post = page.getByTestId('post-sticky-10');
+    await post.scrollIntoViewIfNeeded();
+    const topbar = page.getByRole('banner');
+    const headerBounds = await topbar.boundingBox();
+    const cardBounds = await post.boundingBox();
+    if (!headerBounds || !cardBounds)
+      throw new Error('Missing sticky layout bounds');
+    expect(headerBounds.y).toBe(width > 1250 ? 24 : 16);
+    expect(headerBounds.height).toBe(95);
+    const cover = await topbar.evaluate((element) => {
+      const style = getComputedStyle(element, '::before');
+      return { height: parseFloat(style.height), color: style.backgroundColor };
+    });
+    expect(cover.height).toBe(headerBounds.y);
+    expect(cover.color).toBe('rgb(255, 255, 255)');
+    await expect(
+      topbar.getByRole('link', { name: 'Open profile for alex' }),
+    ).toBeInViewport();
+    await post.evaluate((element) =>
+      element.scrollIntoView({ block: 'start' }),
+    );
+    const anchored = await post.boundingBox();
+    expect(anchored?.y).toBeGreaterThanOrEqual(
+      headerBounds.y + headerBounds.height + 23,
+    );
+    const rail = page.getByRole('complementary', {
+      name: 'Community discovery',
+    });
+    if (width > 1050) {
+      const bounds = await rail.boundingBox();
+      if (!bounds) throw new Error('Missing discovery rail bounds');
+      expect(bounds.y).toBe(headerBounds.y + headerBounds.height + 24);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(
+        650 - headerBounds.y,
+      );
+      const position = await page.evaluate(() => scrollY);
+      await page.mouse.move(
+        bounds.x + bounds.width / 2,
+        bounds.y + bounds.height / 2,
+      );
+      await page.mouse.wheel(0, 1000);
+      await expect
+        .poll(() => rail.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+      await expect(
+        rail.getByRole('link', { name: 'r/sticky_4 42 members', exact: true }),
+      ).toBeInViewport();
+      expect(await page.evaluate(() => scrollY)).toBe(position);
+      await rail.focus();
+      await page.keyboard.press('Home');
+      await expect
+        .poll(() => rail.evaluate((element) => element.scrollTop))
+        .toBe(0);
+    } else {
+      await expect(rail).toBeHidden();
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath(`sticky-chrome-${width}.png`),
+    });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('banner')).toBeHidden();
+  await expect(
+    page.getByRole('complementary', { name: 'Community discovery' }),
+  ).toBeHidden();
 });
 
 test('opens feed discussions, loads only direct replies, and preserves a collapsed reply draft', async ({

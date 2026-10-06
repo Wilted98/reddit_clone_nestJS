@@ -10,7 +10,8 @@ community browsing, text/link posting, bounded discussions/replies, and voting.
 Feed cards include community labels and voting; the sidebar separates recent
 community visits from authenticated subscriptions.
 Public profiles include paginated activity and own-account bio/avatar settings.
-Content editing/deletion screens and moderation workflows are not implemented yet.
+Authors can edit/delete their own posts and comments from discussions and profile activity.
+Moderation workflows are not implemented yet.
 
 ## Local setup
 
@@ -126,6 +127,8 @@ Posting, bounded replies, and vote-state handling are documented in
 [web discussions](docs/14-web-posts-discussions-and-voting.md).
 Public profile, activity pagination, and account editing contracts are in
 [web profiles and settings](docs/15-web-profiles-and-settings.md).
+Author controls, confirmation, and mutation failure handling are documented in
+[web content editing and deletion](docs/16-web-content-editing-and-deletion.md).
 
 ## Verification
 
@@ -190,8 +193,8 @@ see [the comment API migration notes](docs/09-social-service.md#bounded-comment-
 
 Profiles now have bounded `postsByAuthor` and `commentsByAuthor` activity.
 `updatePost` and `updateComment` edit only the caller's own live content;
-nullable `editedAt` tracks edits independently of votes and counters. Apply
-the new social migration before serving/testing this branch. See
+nullable `editedAt` tracks edits independently of votes and counters. Ensure
+the committed social migrations are deployed before serving/testing. See
 [the editing contract](docs/09-social-service.md#content-editing).
 
 The core discussion API is ready for further frontend development, not a claim

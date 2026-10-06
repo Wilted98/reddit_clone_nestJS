@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { expectHeaderOptions } from './support/content-controls';
 
 const createdAt = '2026-10-01T12:00:00Z';
 const privateEmail = 'private-profile@example.com';
@@ -23,15 +24,15 @@ function post(id: string, username = 'alex') {
     __typename: 'Post',
     id,
     title: `Post ${id}`,
-    body: 'A public conversation.',
-    url: null,
+    body: 'A public conversation.' as string | null,
+    url: null as string | null,
     authorId: `${username}-id`,
     authorUsername: username,
     communityId: 'craft-id',
     communitySlug: 'craft',
     createdAt,
-    editedAt: null,
-    deletedAt: null,
+    editedAt: null as string | null,
+    deletedAt: null as string | null,
     score: 4,
     commentCount: 2,
   };
@@ -47,7 +48,7 @@ function comment(id: string) {
     body: `Comment ${id}`,
     createdAt,
     editedAt: id === 'reply' ? createdAt : null,
-    deletedAt: null,
+    deletedAt: null as string | null,
     score: 2,
     hasReplies: false,
   };
@@ -61,6 +62,7 @@ async function mockProfiles(
     profileFailure?: boolean;
     pageFailure?: boolean;
     invalidCursor?: boolean;
+    contentFailure?: boolean;
   } = {},
 ) {
   const state = {
@@ -73,6 +75,9 @@ async function mockProfiles(
     operations: [] as Operation[],
     delaySave: null as Promise<void> | null,
     delayPosts: null as Promise<void> | null,
+    changedPosts: {} as Record<string, ReturnType<typeof post>>,
+    changedComments: {} as Record<string, ReturnType<typeof comment>>,
+    contentFailure: options.contentFailure ?? false,
   };
   const headers = {
     'Access-Control-Allow-Origin': 'http://localhost:4200',
@@ -172,6 +177,44 @@ async function mockProfiles(
     const operation = route.request().postDataJSON() as Operation;
     state.operations.push(operation);
     const { operationName, variables } = operation;
+    if (
+      ['EditPost', 'RemovePost', 'EditComment', 'RemoveComment'].includes(
+        operationName,
+      )
+    ) {
+      if (state.contentFailure) {
+        state.contentFailure = false;
+        return fulfill(route, null, 500);
+      }
+      if (!state.signedIn) return fulfill(route, null, 401);
+      const input = variables.input as Record<string, string> | undefined;
+      const id = String(input?.id ?? variables.id);
+      const removing = operationName.startsWith('Remove');
+      if (operationName.endsWith('Post')) {
+        const item = {
+          ...(state.changedPosts[id] ?? post(id)),
+          ...input,
+          ...(removing
+            ? { deletedAt: createdAt, body: null, url: null }
+            : { editedAt: createdAt }),
+        } as ReturnType<typeof post>;
+        state.changedPosts[id] = item;
+        return fulfill(route, {
+          [removing ? 'deletePost' : 'updatePost']: item,
+        });
+      }
+      const item = {
+        ...(state.changedComments[id] ?? comment(id)),
+        ...input,
+        ...(removing
+          ? { deletedAt: createdAt, body: '[deleted]' }
+          : { editedAt: createdAt }),
+      } as ReturnType<typeof comment>;
+      state.changedComments[id] = item;
+      return fulfill(route, {
+        [removing ? 'deleteComment' : 'updateComment']: item,
+      });
+    }
     if (operationName === 'SubscribedCommunities')
       return fulfill(route, {
         myCommunities: { items: [], hasMore: false, nextCursor: null },
@@ -208,12 +251,16 @@ async function mockProfiles(
       return fulfill(route, {
         postsByAuthor: variables.cursor
           ? {
-              items: [post('two'), post('three')],
+              items: [post('two'), post('three')]
+                .map((item) => state.changedPosts[item.id] ?? item)
+                .filter((item) => !item.deletedAt),
               hasMore: !!options.invalidCursor,
               nextCursor: options.invalidCursor ? 'post-cursor' : null,
             }
           : {
-              items: [post('one'), post('two')],
+              items: [post('one'), post('two')]
+                .map((item) => state.changedPosts[item.id] ?? item)
+                .filter((item) => !item.deletedAt),
               hasMore: true,
               nextCursor: 'post-cursor',
             },
@@ -223,12 +270,16 @@ async function mockProfiles(
       return fulfill(route, {
         commentsByAuthor: variables.cursor
           ? {
-              items: [comment('reply'), comment('three')],
+              items: [comment('reply'), comment('three')]
+                .map((item) => state.changedComments[item.id] ?? item)
+                .filter((item) => !item.deletedAt),
               hasMore: false,
               nextCursor: null,
             }
           : {
-              items: [comment('one'), comment('reply')],
+              items: [comment('one'), comment('reply')]
+                .map((item) => state.changedComments[item.id] ?? item)
+                .filter((item) => !item.deletedAt),
               hasMore: true,
               nextCursor: 'comment-cursor',
             },
@@ -407,6 +458,9 @@ test('handles missing profiles and retryable auth API outages without querying a
     page.getByRole('heading', { level: 1, name: 'u/alex' }),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Edit profile' })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: /^(Edit|Delete) (post|comment)$/ }),
+  ).toHaveCount(0);
   expect(
     state.operations.some((op) => op.operationName.startsWith('Own')),
   ).toBe(false);
@@ -429,6 +483,9 @@ test('does not mix late activity responses across authors or show own controls o
   release();
   await expect(page.getByRole('heading', { name: 'Post one' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Edit profile' })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: /^(Edit|Delete) (post|comment)$/ }),
+  ).toHaveCount(0);
   await expect(page.getByText(privateEmail)).toHaveCount(0);
   await expect(
     page.getByRole('link', { name: 'Your profile', exact: true }),
@@ -549,4 +606,156 @@ test('serializes saving and rechecks an expired session instead of retrying a wr
   ).toBeVisible();
   expect(state.saveCalls).toBe(1);
   await expect(page.getByText(privateEmail)).toHaveCount(0);
+});
+
+test('edits and deletes own profile posts without opening the card or losing pagination', async ({
+  page,
+}, testInfo) => {
+  const state = await mockProfiles(page, { contentFailure: true });
+  await page.goto('/u/alex');
+  await page.getByRole('button', { name: 'Load more posts' }).click();
+  const card = page.getByTestId('post-one');
+  await card.getByRole('button', { name: 'Post options', exact: true }).click();
+  await card.getByRole('button', { name: 'Edit post', exact: true }).click();
+  await card
+    .getByLabel('Title', { exact: true })
+    .fill('An edited profile post');
+  await card.getByRole('button', { name: 'Save changes' }).click();
+  await expect(card.getByRole('alert')).toBeVisible();
+  await expect(card.getByLabel('Title', { exact: true })).toHaveValue(
+    'An edited profile post',
+  );
+  await expect(
+    card.getByRole('button', { name: 'Reload activity' }),
+  ).toBeVisible();
+  await card.getByRole('button', { name: 'Save changes' }).click();
+  await expect(card.getByRole('heading')).toHaveText('An edited profile post');
+  await expect(page).toHaveURL('/u/alex');
+  await expect(page.getByTestId('post-three')).toBeVisible();
+  await card.getByRole('button', { name: 'Post options', exact: true }).click();
+  await card.getByRole('button', { name: 'Delete post', exact: true }).click();
+  await card.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(
+    state.operations.filter((op) => op.operationName === 'RemovePost'),
+  ).toHaveLength(0);
+  await card.getByRole('button', { name: 'Post options', exact: true }).click();
+  await card.getByRole('button', { name: 'Delete post', exact: true }).click();
+  await card
+    .getByRole('button', { name: 'Confirm delete post', exact: true })
+    .click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByTestId('post-two')).toBeVisible();
+  await expect(page.getByTestId('post-three')).toBeVisible();
+  expect(
+    state.operations.filter((op) => op.operationName === 'AuthorPosts'),
+  ).toHaveLength(2);
+  expect(
+    state.operations
+      .filter((op) => op.operationName === 'EditPost')
+      .map((op) => op.variables.input),
+  ).toEqual([
+    { id: 'one', title: 'An edited profile post' },
+    { id: 'one', title: 'An edited profile post' },
+  ]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('profile-post-controls.png'),
+    fullPage: true,
+  });
+  await page
+    .getByTestId('post-two')
+    .getByRole('button', { name: 'Post options', exact: true })
+    .click();
+  await expect(page).toHaveURL('/u/alex');
+  await expectHeaderOptions(page.getByTestId('post-two'));
+  await page.screenshot({
+    path: testInfo.outputPath('profile-post-options.png'),
+    fullPage: true,
+  });
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByTestId('post-two')).toBeVisible();
+});
+
+test('edits and deletes profile comments and resumes past a deleted cursor without resurrecting rows', async ({
+  page,
+}, testInfo) => {
+  const state = await mockProfiles(page);
+  await page.goto('/u/alex?tab=comments');
+  const reply = page.getByTestId('activity-comment-reply');
+  await reply
+    .getByRole('button', { name: 'Comment options', exact: true })
+    .click();
+  await reply
+    .getByRole('button', { name: 'Edit comment', exact: true })
+    .click();
+  await reply
+    .getByLabel('Comment', { exact: true })
+    .fill('An edited profile reply');
+  await reply.getByRole('button', { name: 'Save changes' }).click();
+  await expect(reply.locator(':scope > .comment-body')).toHaveText(
+    'An edited profile reply',
+  );
+  await expect(page).toHaveURL('/u/alex?tab=comments');
+  await reply
+    .getByRole('button', { name: 'Comment options', exact: true })
+    .click();
+  await reply
+    .getByRole('button', { name: 'Delete comment', exact: true })
+    .click();
+  await reply
+    .getByRole('button', { name: 'Confirm delete comment', exact: true })
+    .click();
+  await expect(reply).toHaveCount(0);
+  await page.getByRole('button', { name: 'Load more comments' }).click();
+  await expect(page.getByTestId('activity-comment-three')).toBeVisible();
+  await expect(reply).toHaveCount(0);
+  expect(
+    state.operations
+      .filter((op) => op.operationName === 'AuthorComments')
+      .map((op) => op.variables.cursor),
+  ).toEqual([null, 'comment-cursor']);
+  await page.screenshot({
+    path: testInfo.outputPath('profile-comment-controls.png'),
+    fullPage: true,
+  });
+  await page
+    .getByTestId('activity-comment-one')
+    .getByRole('button', { name: 'Comment options', exact: true })
+    .click();
+  await expect(page).toHaveURL('/u/alex?tab=comments');
+  await expectHeaderOptions(page.getByTestId('activity-comment-one'));
+  await page.screenshot({
+    path: testInfo.outputPath('profile-comment-options.png'),
+    fullPage: true,
+  });
+  await page.keyboard.press('Escape');
+  for (const id of ['one', 'three']) {
+    const card = page.getByTestId(`activity-comment-${id}`);
+    await card
+      .getByRole('button', { name: 'Comment options', exact: true })
+      .click();
+    await card
+      .getByRole('button', { name: 'Delete comment', exact: true })
+      .click();
+    await card
+      .getByRole('button', { name: 'Confirm delete comment', exact: true })
+      .click();
+    await expect(card).toHaveCount(0);
+  }
+  await expect(
+    page.getByRole('heading', { name: 'No comments yet', exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole('heading', {
+      name: 'No comments on this page',
+      exact: true,
+    }),
+  ).toBeVisible();
 });
