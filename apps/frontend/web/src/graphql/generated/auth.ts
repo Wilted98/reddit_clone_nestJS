@@ -18,6 +18,11 @@ export type LoginInput = {
   password: string;
 };
 
+export type UpdateUserInput = {
+  avatarUrl?: string | null | undefined;
+  bio?: string | null | undefined;
+};
+
 export type SessionQueryVariables = Exact<{ [key: string]: never }>;
 
 export type SessionQuery = {
@@ -57,6 +62,36 @@ export type RegisterMutation = {
 export type SignOutMutationVariables = Exact<{ [key: string]: never }>;
 
 export type SignOutMutation = { logout: boolean };
+
+export type PublicProfileQueryVariables = Exact<{
+  username: string;
+}>;
+
+export type PublicProfileQuery = {
+  user: {
+    __typename: 'User';
+    id: string;
+    username: string;
+    bio: string | null;
+    avatarUrl: string | null;
+    createdAt: string;
+  };
+};
+
+export type SaveProfileMutationVariables = Exact<{
+  input: UpdateUserInput;
+}>;
+
+export type SaveProfileMutation = {
+  updateUser: {
+    __typename: 'Account';
+    id: string;
+    username: string;
+    email: string;
+    bio: string | null;
+    avatarUrl: string | null;
+  };
+};
 
 export const SessionDocument = {
   kind: 'Document',
@@ -210,3 +245,113 @@ export const SignOutDocument = {
     },
   ],
 } as unknown as DocumentNode<SignOutMutation, SignOutMutationVariables>;
+export const PublicProfileDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'PublicProfile' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'username' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'String' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'username' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'username' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'username' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'bio' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'avatarUrl' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<PublicProfileQuery, PublicProfileQueryVariables>;
+export const SaveProfileDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'SaveProfile' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'input' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'UpdateUserInput' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'updateUser' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'updateUserInput' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'input' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'username' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'bio' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'avatarUrl' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<SaveProfileMutation, SaveProfileMutationVariables>;

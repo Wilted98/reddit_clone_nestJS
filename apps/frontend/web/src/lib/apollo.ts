@@ -22,3 +22,15 @@ export function createAuthClient() {
     },
   });
 }
+
+export function createPublicProfileClient() {
+  return new ApolloClient({
+    link: new HttpLink({
+      uri: endpoints.auth,
+      credentials: 'omit',
+      fetchOptions: { cache: 'no-store' },
+    }),
+    cache: new InMemoryCache(),
+    defaultOptions: { query: { fetchPolicy: 'no-cache' } },
+  });
+}

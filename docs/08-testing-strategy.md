@@ -65,6 +65,11 @@ post/comment/vote workflow against the local APIs. The latter soft-deletes its
 content afterward, but leaves its test account/community records.
 These do not replace `auth-e2e`/`social-e2e`; they verify browser workflows and
 rendering. See [web verification](12-web-foundation.md#verification).
+Profile/settings specs also cover isolated cookie-free public transport,
+profile patches and validation, avatar fallback, pending-write serialization,
+session identity and late-save protection. Browser tests cover independent
+author activity pages, explicit retries, profile privacy, and real profile
+saves in the optional live suite. See [web profile verification](15-web-profiles-and-settings.md#verification).
 
 ### Profile privacy and authentication rate limits
 

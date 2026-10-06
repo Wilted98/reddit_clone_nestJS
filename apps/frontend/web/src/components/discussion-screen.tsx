@@ -278,9 +278,16 @@ function CommentItem({
       aria-label={`Comment by ${comment.deletedAt ? 'deleted user' : comment.authorUsername}`}
     >
       <header className="comment-meta">
-        <strong>
-          {comment.deletedAt ? '[deleted]' : `u/${comment.authorUsername}`}
-        </strong>
+        {comment.deletedAt ? (
+          <strong>[deleted]</strong>
+        ) : (
+          <Link
+            className="author-link"
+            href={`/u/${encodeURIComponent(comment.authorUsername)}`}
+          >
+            <strong>u/{comment.authorUsername}</strong>
+          </Link>
+        )}
         <time dateTime={comment.createdAt}>
           {formatDate(comment.createdAt)}
         </time>

@@ -9,7 +9,8 @@ cookie-based account sessions, public feeds with sorting/pagination,
 community browsing, text/link posting, bounded discussions/replies, and voting.
 Feed cards include community labels and voting; the sidebar separates recent
 community visits from authenticated subscriptions.
-Profile/editing screens and moderation workflows are not implemented yet.
+Public profiles include paginated activity and own-account bio/avatar settings.
+Content editing/deletion screens and moderation workflows are not implemented yet.
 
 ## Local setup
 
@@ -90,6 +91,8 @@ Open `http://localhost:4200`; both backend CORS templates already allow this
 origin. Home is the public feed; `/communities` lists communities,
 `/r/[slug]` opens a community feed, `/posts/[id]` opens its discussion,
 `/submit` creates posts, and `/account` handles account sessions.
+`/u/[username]` shows public profiles and activity; `/account#profile-settings`
+opens the caller's bio/avatar editor. Public profiles never display account email.
 The frontend uses the existing httpOnly auth cookie, not a separate
 auth system or localStorage tokens. Endpoint overrides are documented in
 `apps/frontend/web/.env.example`; put local values in `.env.local`.
@@ -121,6 +124,8 @@ against the local APIs/databases. See [web setup](docs/12-web-foundation.md)
 and [feed/community behavior](docs/13-web-feeds-and-communities.md).
 Posting, bounded replies, and vote-state handling are documented in
 [web discussions](docs/14-web-posts-discussions-and-voting.md).
+Public profile, activity pagination, and account editing contracts are in
+[web profiles and settings](docs/15-web-profiles-and-settings.md).
 
 ## Verification
 

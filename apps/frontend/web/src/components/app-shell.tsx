@@ -12,6 +12,8 @@ import {
 import { ReactNode } from 'react';
 import { useSession } from './session-provider';
 import { CommunityShortcuts } from './community-shortcuts';
+import { profileHref } from '../lib/profile';
+import { ProfileAvatar } from './profile-avatar';
 
 export function AppShell({
   children,
@@ -21,7 +23,7 @@ export function AppShell({
   accountNavigation,
 }: {
   children: ReactNode;
-  active: 'home' | 'communities' | 'account';
+  active: 'home' | 'communities' | 'account' | 'profile' | null;
   title: string;
   mainId?: string;
   accountNavigation?: ReactNode;
@@ -42,6 +44,13 @@ export function AppShell({
       icon: account ? UserRound : LogIn,
     },
   ];
+  if (account)
+    links.splice(2, 0, {
+      href: profileHref(account.username),
+      key: 'profile',
+      label: 'Your profile',
+      icon: UserRound,
+    });
   return (
     <div className="app-shell">
       <a className="skip-link" href={`#${mainId}`}>
@@ -85,14 +94,21 @@ export function AppShell({
             <span className="header-title">{title}</span>
           </div>
           <Link
-            href="/account"
+            href={account ? profileHref(account.username) : '/account'}
             className="header-avatar"
             aria-label={
-              account ? `Signed in as ${account.username}` : 'Open account'
+              account ? `Open profile for ${account.username}` : 'Open account'
             }
             title={account ? account.username : 'Sign in'}
           >
-            <UserRound size={23} />
+            {account ? (
+              <ProfileAvatar
+                username={account.username}
+                avatarUrl={account.avatarUrl}
+              />
+            ) : (
+              <UserRound size={23} />
+            )}
           </Link>
         </header>
         {children}

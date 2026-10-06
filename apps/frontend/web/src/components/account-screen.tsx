@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   ArrowRight,
   CircleCheck,
@@ -11,18 +12,32 @@ import {
   RotateCcw,
   ShieldCheck,
   UserPlus,
+  Pencil,
+  UserRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { errorMessage } from '../lib/errors';
 import { AuthForm, AuthMode } from './auth-form';
 import { AppShell } from './app-shell';
 import { useSession } from './session-provider';
+import { ProfileSettingsForm } from './profile-settings-form';
+import { ProfileAvatar } from './profile-avatar';
+import { profileHref } from '../lib/profile';
 
 export function AccountScreen() {
   const session = useSession();
   const [mode, setMode] = useState<AuthMode>('login');
   const [signingOut, setSigningOut] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    function openSettings() {
+      if (window.location.hash === '#profile-settings') setEditing(true);
+    }
+    openSettings();
+    window.addEventListener('hashchange', openSettings);
+    return () => window.removeEventListener('hashchange', openSettings);
+  }, []);
   async function signOut() {
     setSigningOut(true);
     setFailure(null);
@@ -82,6 +97,10 @@ export function AccountScreen() {
               </span>
               <h1 id="account-heading">Hey, {session.account.username}!</h1>
               <p className="section-intro">Good to have you here.</p>
+              <ProfileAvatar
+                username={session.account.username}
+                avatarUrl={session.account.avatarUrl}
+              />
               <dl className="account-details">
                 <div>
                   <dt>Username</dt>
@@ -98,6 +117,32 @@ export function AccountScreen() {
                   </div>
                 )}
               </dl>
+              <section
+                id="profile-settings"
+                className="account-profile-settings"
+              >
+                <Link
+                  className="text-button"
+                  href={profileHref(session.account.username)}
+                >
+                  <UserRound size={17} /> View public profile
+                </Link>
+                {editing ? (
+                  <ProfileSettingsForm
+                    key={session.account.id}
+                    account={session.account}
+                    onCancel={() => setEditing(false)}
+                  />
+                ) : (
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Pencil size={17} /> Edit profile
+                  </button>
+                )}
+              </section>
               {failure && (
                 <p className="error-message" role="alert">
                   {failure}

@@ -28,3 +28,23 @@ mutation Register($input: CreateUserInput!) {
 mutation SignOut {
   logout
 }
+
+query PublicProfile($username: String!) {
+  user(username: $username) {
+    id
+    username
+    bio
+    avatarUrl
+    createdAt
+  }
+}
+
+mutation SaveProfile($input: UpdateUserInput!) {
+  updateUser(updateUserInput: $input) {
+    id
+    username
+    email
+    bio
+    avatarUrl
+  }
+}

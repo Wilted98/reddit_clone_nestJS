@@ -16,6 +16,8 @@ import {
   SessionQuery,
   SignInDocument,
   SignOutDocument,
+  SaveProfileDocument,
+  UpdateUserInput,
 } from '../graphql/generated/auth';
 import { createAuthClient } from '../lib/apollo';
 import { RegistrationFields, SignInFields } from '../lib/auth-validation';
@@ -29,6 +31,7 @@ interface SessionState {
   signIn: (input: SignInFields) => Promise<void>;
   register: (input: RegistrationFields) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (input: UpdateUserInput) => Promise<void>;
 }
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -111,9 +114,41 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updateProfile(input: UpdateUserInput) {
+    const accountId = account?.id;
+    if (!accountId) throw new Error('No active account');
+    const current = ++revision.current;
+    try {
+      const { data } = await auth.mutate({
+        mutation: SaveProfileDocument,
+        variables: { input },
+      });
+      if (current !== revision.current) throw new Error('Session changed');
+      if (!data?.updateUser || data.updateUser.id !== accountId)
+        throw new Error('Missing account response');
+      setAccount(data.updateUser);
+      setError(null);
+    } catch (failure) {
+      if (current === revision.current && isUnauthenticated(failure))
+        await refresh();
+      throw failure;
+    } finally {
+      if (current === revision.current) setLoading(false);
+    }
+  }
+
   return (
     <SessionContext.Provider
-      value={{ account, loading, error, refresh, signIn, register, signOut }}
+      value={{
+        account,
+        loading,
+        error,
+        refresh,
+        signIn,
+        register,
+        signOut,
+        updateProfile,
+      }}
     >
       {children}
     </SessionContext.Provider>

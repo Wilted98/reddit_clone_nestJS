@@ -101,6 +101,26 @@ fragment DiscussionComment on Comment {
   hasReplies
 }
 
+query AuthorPosts($authorId: String!, $cursor: String, $limit: Int!) {
+  postsByAuthor(authorId: $authorId, cursor: $cursor, limit: $limit) {
+    items {
+      ...DiscussionPost
+    }
+    nextCursor
+    hasMore
+  }
+}
+
+query AuthorComments($authorId: String!, $cursor: String, $limit: Int!) {
+  commentsByAuthor(authorId: $authorId, cursor: $cursor, limit: $limit) {
+    items {
+      ...DiscussionComment
+    }
+    nextCursor
+    hasMore
+  }
+}
+
 query Discussion($id: String!) {
   post(id: $id) {
     ...DiscussionPost

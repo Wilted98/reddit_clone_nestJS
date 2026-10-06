@@ -35,6 +35,10 @@ describe('post cards', () => {
       'href',
       '/r/craft',
     );
+    expect(screen.getByRole('link', { name: 'u/alex' })).toHaveAttribute(
+      'href',
+      '/u/alex',
+    );
     expect(
       screen.getByRole('link', { name: 'Sign in to upvote post' }),
     ).toHaveAttribute('href', '/account');
