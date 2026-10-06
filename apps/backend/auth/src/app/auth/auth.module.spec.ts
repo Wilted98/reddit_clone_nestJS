@@ -36,7 +36,7 @@ describe('AuthModule wiring', () => {
 
   it('registers a working "jwt" Passport strategy for a validly-signed token', async () => {
     process.env['JWT_SECRET'] = 'test-secret';
-    process.env['JWT_EXPIRATION_MS'] = '3600000';
+    process.env['JWT_EXPIRATION_MS'] = '604800000';
 
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule],
@@ -49,6 +49,10 @@ describe('AuthModule wiring', () => {
     await app.init();
 
     const token = app.get(JwtService).sign({ userId: 'user-1' });
+    const payload = app
+      .get(JwtService)
+      .decode<{ iat: number; exp: number }>(token);
+    expect(payload.exp - payload.iat).toBe(7 * 24 * 60 * 60);
     const guard = new JwtAuthGuard();
 
     // Resolves to a request object (truthy) rather than rejecting - proves

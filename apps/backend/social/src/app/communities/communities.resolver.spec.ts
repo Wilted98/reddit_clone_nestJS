@@ -84,9 +84,25 @@ describe('CommunitiesResolver', () => {
     await expect(
       resolver.myCommunities({ cursor: 'last', limit: 20 }, user),
     ).resolves.toBe(page);
-    expect(service.listMine).toHaveBeenCalledWith(user.id, 'last', 20);
+    expect(service.listMine).toHaveBeenCalledWith(
+      user.id,
+      'last',
+      20,
+      undefined,
+    );
     expect(Reflect.getMetadata('__guards__', resolver.myCommunities)).toContain(
       GqlAuthGuard,
+    );
+  });
+
+  it('scopes an exact community lookup to the authenticated caller', async () => {
+    service.listMine.mockResolvedValue({ items: [] });
+    await resolver.myCommunities({ limit: 1 }, user, 'craft');
+    expect(service.listMine).toHaveBeenCalledWith(
+      user.id,
+      undefined,
+      1,
+      'craft',
     );
   });
 

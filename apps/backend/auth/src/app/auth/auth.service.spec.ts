@@ -108,6 +108,15 @@ describe('AuthService', () => {
         expect.objectContaining({ secure: false }),
       );
     });
+    it('uses the same seven-day configured lifetime for the cookie', async () => {
+      configService.getOrThrow.mockReturnValue('604800000');
+      await service.login(loginInput, response as unknown as Response);
+      expect(response.cookie).toHaveBeenCalledWith(
+        'Authentication',
+        'signed.jwt.token',
+        expect.objectContaining({ maxAge: 604800000 }),
+      );
+    });
 
     it('returns the user on success', async () => {
       await expect(

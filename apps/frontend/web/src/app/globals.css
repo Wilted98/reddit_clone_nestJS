@@ -272,6 +272,9 @@ button {
   display: flex;
   flex-direction: column;
 }
+.workspace > main {
+  flex: 1 0 auto;
+}
 .topbar {
   position: sticky;
   top: var(--shell-inset);
@@ -450,7 +453,7 @@ input[readonly] {
   align-items: center;
   gap: 6px;
 }
-.text-button:hover {
+.text-button:hover:not(:disabled) {
   text-decoration: underline;
 }
 .auth-switch {
@@ -1484,6 +1487,24 @@ select:focus-visible {
   margin-bottom: 28px;
   padding-bottom: 28px;
   border-bottom: 1px solid #dce5e6;
+}
+.community-heading-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.community-membership {
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+.community-membership > p {
+  margin: 0;
 }
 .discussion-back {
   margin-bottom: 24px;

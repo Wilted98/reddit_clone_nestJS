@@ -267,6 +267,30 @@ describe('Communities through auth and social', () => {
     expect(
       new Set([...first.items, ...second.items].map((item) => item.id)),
     ).toEqual(new Set(joined.map((item) => item.id)));
+    const scopedQuery =
+      'query($slug: String!) { myCommunities(slug: $slug, limit: 1) { items { id slug } nextCursor hasMore } }';
+    const exact = expectData(
+      await gql<{ myCommunities: CommunityPage }>(
+        scopedQuery,
+        { slug: second.items[0].slug },
+        subscriber.cookie,
+      ),
+    ).myCommunities;
+    expect(exact.items).toEqual(second.items);
+    expect(exact.hasMore).toBe(false);
+    const outsider = await registerAndLogin();
+    const other = expectData(
+      await gql<{ myCommunities: CommunityPage }>(
+        scopedQuery,
+        { slug: second.items[0].slug },
+        outsider.cookie,
+      ),
+    ).myCommunities;
+    expect(other.items).toEqual([]);
+    expect(
+      (await gql(scopedQuery, { slug: second.items[0].slug })).errors?.[0]
+        .extensions?.code,
+    ).toBe('FORBIDDEN');
     expectData(
       await gql(
         memberQuery('leaveCommunity'),

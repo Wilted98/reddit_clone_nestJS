@@ -64,6 +64,7 @@ async function mockProfiles(
     pageFailure?: boolean;
     invalidCursor?: boolean;
     contentFailure?: boolean;
+    emptyActivity?: boolean;
   } = {},
 ) {
   const state = {
@@ -178,6 +179,19 @@ async function mockProfiles(
     const operation = route.request().postDataJSON() as Operation;
     state.operations.push(operation);
     const { operationName, variables } = operation;
+    if (
+      options.emptyActivity &&
+      ['AuthorPosts', 'AuthorComments'].includes(operationName)
+    )
+      return fulfill(route, {
+        [operationName === 'AuthorPosts'
+          ? 'postsByAuthor'
+          : 'commentsByAuthor']: {
+          items: [],
+          hasMore: false,
+          nextCursor: null,
+        },
+      });
     if (
       ['EditPost', 'RemovePost', 'EditComment', 'RemoveComment'].includes(
         operationName,
@@ -340,6 +354,38 @@ test('shows a public profile without account email or cookie-bearing public requ
   await page.screenshot({
     path: testInfo.outputPath('public-profile.png'),
     fullPage: true,
+  });
+});
+
+test('keeps the footer at the shell bottom for empty posts and comments', async ({
+  page,
+}, testInfo) => {
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('Expected a configured viewport');
+  await page.setViewportSize({ ...viewport, height: 1400 });
+  await mockProfiles(page, { emptyActivity: true });
+  await page.goto('/u/alex');
+  await expect(
+    page.getByRole('heading', { name: 'No posts yet' }),
+  ).toBeVisible();
+  async function footerAtBottom() {
+    const footer = await page.locator('.workspace-footer').boundingBox();
+    const shell = await page.locator('.app-shell').boundingBox();
+    if (!footer || !shell)
+      throw new Error('Expected a visible shell and footer');
+    expect(
+      Math.abs(footer.y + footer.height - shell.y - shell.height),
+    ).toBeLessThan(2);
+    expect(shell.y + shell.height).toBeGreaterThanOrEqual(1375);
+  }
+  await footerAtBottom();
+  await page.getByRole('link', { name: 'Comments', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'No comments yet' }),
+  ).toBeVisible();
+  await footerAtBottom();
+  await page.screenshot({
+    path: `test-results/empty-profile-${testInfo.project.name}.png`,
   });
 });
 

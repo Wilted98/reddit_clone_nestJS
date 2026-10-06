@@ -29,10 +29,14 @@ The community selector pages the public directory, 20 entries per request.
 A URL-preselected slug remains selectable even if outside the first page;
 the backend validates its existence. Joining requires an explicit button
 click and does not publish a post automatically. The join mutation is
-idempotent; its success notice confirms that action, not a persistent
-membership lookup. There is still no authoritative joined/leave toggle or
-community-role UI because arbitrary-community caller role context is unavailable.
-Successful joins refresh the sidebar's authoritative subscription list.
+idempotent. A private `myCommunities(slug, limit: 1)` lookup checks the selected
+community even if it is outside the first subscription page. Existing and
+confirmed memberships display a dimmed, disabled Joined control. Success notices
+clear after 3.5 seconds without re-enabling Join. Selecting another community
+checks that community independently. Successful joins refresh active sidebar and
+joined-directory queries. Leave controls are available in community headers and
+the joined directory, not inside the composer. Lookup failures do not guess
+membership; they have a retry control.
 
 Publishing requires membership. Validation, membership, and transport errors
 preserve form values. Publishing and joining are serialized. A confirmed

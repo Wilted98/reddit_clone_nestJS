@@ -199,6 +199,15 @@ describe('CommunitiesService', () => {
   });
 
   describe('listMine', () => {
+    it('filters by the exact slug while retaining caller scoping', async () => {
+      prisma.client.community.findMany.mockResolvedValue([]);
+      await service.listMine('member-1', undefined, 1, 'craft');
+      expect(prisma.client.community.findMany).toHaveBeenCalledWith({
+        take: 2,
+        where: { memberships: { some: { userId: 'member-1' } }, slug: 'craft' },
+        orderBy: { id: 'asc' },
+      });
+    });
     it('filters every page by the authenticated membership and overfetches one', async () => {
       const rows = ['a', 'b', 'c'].map((id) => ({ ...community, id }));
       prisma.client.community.findMany.mockResolvedValue(rows);

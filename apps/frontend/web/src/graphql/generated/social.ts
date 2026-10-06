@@ -171,6 +171,26 @@ export type JoinedCommunitiesQuery = {
   };
 };
 
+export type CommunityMembershipQueryVariables = Exact<{
+  slug: string;
+}>;
+
+export type CommunityMembershipQuery = {
+  myCommunities: {
+    __typename: 'CommunityPage';
+    items: Array<{
+      __typename: 'Community';
+      ownerId: string;
+      id: string;
+      slug: string;
+      name: string;
+      description: string | null;
+      memberCount: number;
+      createdAt: string;
+    }>;
+  };
+};
+
 export type LeaveCommunityMutationVariables = Exact<{
   slug: string;
 }>;
@@ -507,6 +527,7 @@ export type JoinForPostingMutationVariables = Exact<{
 export type JoinForPostingMutation = {
   joinCommunity: {
     __typename: 'Community';
+    ownerId: string;
     id: string;
     slug: string;
     name: string;
@@ -1175,6 +1196,111 @@ export const JoinedCommunitiesDocument = {
 } as unknown as DocumentNode<
   JoinedCommunitiesQuery,
   JoinedCommunitiesQueryVariables
+>;
+export const CommunityMembershipDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'CommunityMembership' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'slug' } },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'String' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'myCommunities' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'slug' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'slug' },
+                },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'limit' },
+                value: { kind: 'IntValue', value: '1' },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'items' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'JoinedCommunity' },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'CommunitySummary' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Community' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'slug' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'description' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'memberCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'JoinedCommunity' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Community' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'CommunitySummary' },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'ownerId' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  CommunityMembershipQuery,
+  CommunityMembershipQueryVariables
 >;
 export const LeaveCommunityDocument = {
   kind: 'Document',
@@ -2437,7 +2563,7 @@ export const JoinForPostingDocument = {
               selections: [
                 {
                   kind: 'FragmentSpread',
-                  name: { kind: 'Name', value: 'CommunitySummary' },
+                  name: { kind: 'Name', value: 'JoinedCommunity' },
                 },
               ],
             },
@@ -2461,6 +2587,24 @@ export const JoinForPostingDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'description' } },
           { kind: 'Field', name: { kind: 'Name', value: 'memberCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'JoinedCommunity' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Community' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'CommunitySummary' },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'ownerId' } },
         ],
       },
     },

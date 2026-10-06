@@ -132,7 +132,7 @@ type Query {
   ): PostPage!
   health: String!
   myCommentVotes(commentIds: [String!]!): [VoteResult!]!
-  myCommunities(cursor: String, limit: Int! = 25): CommunityPage!
+  myCommunities(cursor: String, limit: Int! = 25, slug: String): CommunityPage!
   myPostVotes(postIds: [String!]!): [VoteResult!]!
   post(id: String!): Post!
   postsByAuthor(authorId: String!, cursor: String, limit: Int! = 25): PostPage!

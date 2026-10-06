@@ -58,6 +58,14 @@ query JoinedCommunities($cursor: String, $limit: Int!) {
   }
 }
 
+query CommunityMembership($slug: String!) {
+  myCommunities(slug: $slug, limit: 1) {
+    items {
+      ...JoinedCommunity
+    }
+  }
+}
+
 mutation LeaveCommunity($slug: String!) {
   leaveCommunity(slug: $slug) {
     ...JoinedCommunity
@@ -214,7 +222,7 @@ mutation RemoveComment($id: String!) {
 
 mutation JoinForPosting($slug: String!) {
   joinCommunity(slug: $slug) {
-    ...CommunitySummary
+    ...JoinedCommunity
   }
 }
 

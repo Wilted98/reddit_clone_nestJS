@@ -31,14 +31,13 @@ docker compose ps
 Set a private `JWT_SECRET` in auth's `.env`. The templates configure auth HTTP
 on port 3000, social HTTP on 3001, and auth gRPC on 5050. Social's
 `AUTH_GRPC_URL` must match auth's `GRPC_URL`; social does not need `JWT_SECRET`.
-Both `.env` files are gitignored. Wait for Postgres to be healthy, then apply
-the committed migrations:
+Both local `.env` paths are listed in `.gitignore`. Auth's `.env` was already
+tracked in this checkout: ignore rules do not untrack it, so remove it from
+version control before publishing secrets (keep the local file). Wait for Postgres to be healthy, then generate
+the backend clients, apply both services' migrations, and load fictional demo data:
 
 ```bash
-cd apps/backend/auth
-npx prisma migrate deploy
-cd ../../..
-npx nx run social:deploy-prisma
+npm run db:setup
 ```
 
 Docker initializes `roorin_auth` and `roorin_social` on the first startup of
@@ -64,8 +63,12 @@ npm start
 ```
 
 `npm start` is an alias for `npm run dev`, not a production deployment command.
-Stop the running processes with Ctrl+C before switching startup commands to
-avoid port conflicts. Generation runs before startup; `npm ci` does not run
+Run `npm run stop` before switching startup commands to avoid port conflicts.
+It stops this checkout's Node/Nx processes, including web and backend watchers,
+without stopping other projects or Docker. `npm run stop -- --dry-run` previews
+the targets; `npm run stop:all` also stops this project's Compose Postgres service
+without deleting its volume. These stop commands support macOS and Linux.
+Generation runs before startup; `npm ci` does not run
 project codegen because fresh installs may not have environment files or `protoc` yet.
 `npm run codegen` generates gRPC contracts, both Prisma clients, and web GraphQL
 documents. Prisma generation bypasses Nx's cache so clients inside
@@ -76,6 +79,24 @@ GraphQL endpoints are `http://localhost:3000/graphql` (auth) and
 `http://localhost:3001/graphql` (social). Public social queries do not require
 auth to run. Guarded social mutations and private vote queries require auth's gRPC endpoint and the
 `Authentication` cookie returned by login.
+
+Demo login: `alex@roorin.example` / `RoorinDemo2026!` (all 12 seeded accounts
+share this development-only password). `npm run db:seed` adds the demo dataset
+without duplicating its records. To replace **all local auth/social records**:
+
+```bash
+npm run stop
+npm run db:reset -- --confirm
+npm run db:seed
+npm start
+```
+
+Back up data you need first. Database scripts refuse production, remote hosts,
+unexpected database names, query overrides, and an inherited root `DATABASE_URL`.
+Seeding is explicit, not part of installation or startup. Never deploy demo accounts.
+Use `npm run db:migrate` for migrations without seeding.
+See [local development and demo data](docs/19-local-development-and-demo-data.md)
+for dataset contents, reset safety, and repeat-run behavior.
 
 Stop Postgres with `docker compose down`; this preserves its volume.
 
@@ -97,6 +118,10 @@ opens the caller's bio/avatar editor. Public profiles never display account emai
 The frontend uses the existing httpOnly auth cookie, not a separate
 auth system or localStorage tokens. Endpoint overrides are documented in
 `apps/frontend/web/.env.example`; put local values in `.env.local`.
+Auth's template sets a seven-day absolute JWT/cookie lifetime. Keep `JWT_SECRET`
+stable across restarts; changing it invalidates sessions. Temporary API failures
+preserve an already confirmed frontend account, but confirmed unauthorized
+responses clear it. No refresh tokens or sliding expiration are implemented.
 
 For a production web build/start (with appropriately configured backend APIs):
 
@@ -145,6 +170,7 @@ Run commands from the repository root:
 | `npm run test:backend`                           | Auth and social unit/integration tests       | No running APIs or database                           |
 | `npm run test:auth` / `test:social` / `test:web` | One application's unit/integration tests     | No running APIs or database                           |
 | `npm run test:coverage`                          | Unit/integration suites with coverage        | No running APIs or database                           |
+| `npm run test:scripts`                           | Stop, database guards/reset, and seed tests  | No APIs or database; macOS/Linux process tools        |
 | `npm run test:e2e:backend`                       | Auth then social API E2E                     | Migrated Postgres databases; Nx starts APIs           |
 | `npm run test:e2e:auth` / `test:e2e:social`      | One API E2E suite                            | Migrated database(s); Nx starts APIs                  |
 | `npm run test:e2e:web`                           | Mocked desktop/mobile browser tests          | Playwright Chromium; no APIs or database              |

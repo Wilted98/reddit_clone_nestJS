@@ -46,6 +46,7 @@ function Probe() {
       <button onClick={() => void session.signOut().catch(() => undefined)}>
         Logout
       </button>
+      <button onClick={() => void session.refresh()}>Refresh session</button>
       <button
         onClick={() =>
           void session
@@ -100,6 +101,44 @@ describe('cookie session lifecycle', () => {
     expect(
       await screen.findByText('Could not reach Roorin. Please try again.'),
     ).toBeInTheDocument();
+  });
+  it('retains the last confirmed account during a transient session-check failure', async () => {
+    render(
+      <SessionProvider>
+        <Probe />
+      </SessionProvider>,
+    );
+    await screen.findByText(account.email);
+    auth.query.mockRejectedValueOnce(new Error('Offline'));
+    fireEvent.click(screen.getByText('Refresh session'));
+    await screen.findByText('Could not reach Roorin. Please try again.');
+    expect(screen.getByText(account.email)).toBeInTheDocument();
+    expect(screen.queryByText('Guest')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Refresh session'));
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Could not reach Roorin. Please try again.'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText(account.email)).toBeInTheDocument();
+  });
+
+  it('still clears the account when a later session check confirms expiry', async () => {
+    render(
+      <SessionProvider>
+        <Probe />
+      </SessionProvider>,
+    );
+    await screen.findByText(account.email);
+    auth.query.mockRejectedValueOnce(
+      new CombinedGraphQLErrors({
+        errors: [
+          { message: 'Unauthorized', extensions: { code: 'UNAUTHENTICATED' } },
+        ],
+      }),
+    );
+    fireEvent.click(screen.getByText('Refresh session'));
+    await screen.findByText('Guest');
   });
   it('does not overwrite a login with an older restore response', async () => {
     let resolve!: (value: unknown) => void;

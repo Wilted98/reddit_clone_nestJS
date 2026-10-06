@@ -52,9 +52,19 @@ response.cookie('Authentication', accessToken, {
   httpOnly: true,
   sameSite: 'lax',
   secure: this.configService.get('NODE_ENV') === 'production',
-  maxAge: Number(this.configService.getOrThrow('JWT_EXPIRATION_MS')),
+  maxAge: sessionLifetimeMs(this.configService.getOrThrow('JWT_EXPIRATION_MS')),
 });
 ```
+
+`JWT_EXPIRATION_MS` defaults to `604800000` (seven days) in the environment
+template. The same validated duration sets the cookie's milliseconds and the
+JWT's numeric seconds, so both expire together. Configuration must be a whole
+number of seconds between one second and 30 days; invalid settings fail startup.
+This is an **absolute** lifetime, not a sliding session, and there are no refresh
+tokens. Restart auth and sign in again after changing the duration: existing
+tokens retain their original expiration. Keep `JWT_SECRET` stable across process
+restarts; rotating it invalidates all existing tokens. Use one hostname consistently
+in local browsing (`localhost` rather than alternating with `127.0.0.1`).
 
 - **`httpOnly`** — inaccessible to JavaScript running on the page, mitigating
   XSS token theft; the client never sees the token value, only sends it back

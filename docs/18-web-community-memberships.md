@@ -23,8 +23,25 @@ not establish non-membership.
 The typed `LeaveCommunity` mutation calls `leaveCommunity(slug)` with the
 existing httpOnly cookie. The backend derives the caller identity and remains
 the permission authority. Owners have no Leave control, and the API also
-rejects an owner departure. No backend schema changes, migrations, or new
-environment variables are needed.
+rejects an owner departure. No database migrations or new environment variables
+are needed. The private list query also accepts an optional exact `slug` filter.
+
+## Community and Composer Controls
+
+The shared membership control uses `myCommunities(slug, limit: 1)` to check one
+community without scanning subscription pages. It remains cookie-authenticated,
+caller-scoped, uncached, and isolated on account/slug changes. Guests do not issue
+this lookup. Failed/loading checks do not show an enabled Join action.
+
+Community headers place Join or Leave next to the community name; owners see a
+disabled Owner control. Leave uses the same native confirmation dialog and
+error/session handling as the directory. Confirmed mutations update the header's
+member count and refresh active subscription/directory queries. The composer
+shows a dimmed, disabled Joined control for existing or confirmed membership;
+switching its community checks the new slug. Green success messages disappear
+after 3.5 seconds without changing membership. Membership writes are serialized,
+never automatically retried, and late results after navigation/account changes
+are ignored. No MEMBER/MODERATOR role is guessed from these responses.
 
 ## Pagination and departures
 
@@ -56,9 +73,9 @@ change do not mutate the new view. Reload reads authoritative memberships.
 
 Leaving does not delete posts/comments or remove the author's editing rights.
 Recent visits remain separate browsing history. Joining is still available
-through the post composer; see [posting](14-web-posts-discussions-and-voting.md).
-Arbitrary-community joined/role lookup, community settings, ownership transfer,
-community deletion, and moderation are not added by this screen.
+through the post composer and community header; see [posting](14-web-posts-discussions-and-voting.md).
+Non-owner role lookup, community settings, ownership transfer, community deletion,
+and moderation remain outside these controls.
 
 ## Verification
 
