@@ -11,7 +11,11 @@ Signed-in navigation includes the caller's public profile. `/account` remains
 the private account view; `/account#profile-settings` opens its profile editor.
 Only bio and avatar URL are editable. Username, email, and passwords are not
 editable through this form. Content editing/deletion and community settings
-are separate workflows, not included here.
+are separate workflows, not included here. Discussion author controls are
+documented in [content editing/deletion](16-web-content-editing-and-deletion.md).
+Own activity cards also expose author-only content editing/deletion. Successful
+edits retain loaded pages, and confirmed deletions remove their activity rows
+without resetting the next cursor. Public visitors have no such controls.
 
 ## Public and private data
 

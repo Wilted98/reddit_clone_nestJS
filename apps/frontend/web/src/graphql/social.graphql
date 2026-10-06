@@ -159,6 +159,30 @@ mutation PublishComment($input: CreateCommentInput!) {
   }
 }
 
+mutation EditPost($input: UpdatePostInput!) {
+  updatePost(updatePostInput: $input) {
+    ...DiscussionPost
+  }
+}
+
+mutation RemovePost($id: String!) {
+  deletePost(id: $id) {
+    ...DiscussionPost
+  }
+}
+
+mutation EditComment($input: UpdateCommentInput!) {
+  updateComment(updateCommentInput: $input) {
+    ...DiscussionComment
+  }
+}
+
+mutation RemoveComment($id: String!) {
+  deleteComment(id: $id) {
+    ...DiscussionComment
+  }
+}
+
 mutation JoinForPosting($slug: String!) {
   joinCommunity(slug: $slug) {
     ...CommunitySummary

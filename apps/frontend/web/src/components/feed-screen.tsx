@@ -34,6 +34,7 @@ import {
   FeedFilters,
   FEED_PAGE_SIZE,
   nextFeedVariables,
+  PAGE_LOADING_MIN_MS,
 } from '../lib/feed';
 import { isNotFound } from '../lib/errors';
 import { AppShell } from './app-shell';
@@ -44,8 +45,6 @@ import { SocialRail } from './social-rail';
 import { VoteGroup } from './voting';
 import { useSession } from './session-provider';
 import { recentKey, visitCommunity } from '../lib/recent-communities';
-
-const PAGE_LOADING_MIN_MS = 700;
 
 export function FeedScreen({
   filters,

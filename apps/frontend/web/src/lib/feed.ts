@@ -7,6 +7,7 @@ import type {
 
 export const FEED_PAGE_SIZE = 20;
 export const COMMUNITY_PAGE_SIZE = 20;
+export const PAGE_LOADING_MIN_MS = 700;
 export const HOT_MAX_OFFSET = 500;
 export type FeedFilters = { sort: FeedSort; range: FeedRange };
 export type SearchParams = Record<string, string | string[] | undefined>;

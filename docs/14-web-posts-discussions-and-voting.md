@@ -69,6 +69,11 @@ their descendants remain reachable; live posts still permit replying beneath
 a deleted parent. User content is plain text; external links use the same
 HTTP/S validation as feed cards.
 
+Live authors have Edit/Delete controls on discussions. Changes are applied
+after confirmed responses; deletion requires confirmation and retains the
+thread. See [content editing and deletion](16-web-content-editing-and-deletion.md)
+for validation, pagination retention, session handling, and limitations.
+
 ## Voting and privacy
 
 Voting controls use compact direction/count pills in discussions and feeds.
@@ -106,7 +111,7 @@ text/link payloads, membership failures, vote restoration/toggling, privacy,
 tombstones, and responsive rendering. Fixtures are test-only.
 
 With both migrated APIs running, `npx nx run web-e2e:e2e-live` also verifies
-publishing, commenting, vote mutations, and vote restoration after reload
+publishing, commenting, editing/deletion, vote mutations, and vote restoration after reload
 using a real cookie and isolated test account/community. It soft-deletes its
 own post/comment afterward; its account, community, membership, and
 soft-deleted rows remain in the local databases. Never point this smoke test

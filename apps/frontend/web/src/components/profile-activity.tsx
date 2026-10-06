@@ -7,11 +7,14 @@ import { useRef, useState } from 'react';
 import {
   AuthorPostsDocument,
   AuthorCommentsDocument,
+  DiscussionPostFragment,
+  DiscussionCommentFragment,
 } from '../graphql/generated/social';
 import { formatDate } from '../lib/content';
 import { appendUnique } from '../lib/feed';
 import { ActivityTab, ACTIVITY_PAGE_SIZE } from '../lib/profile';
 import { PostCard } from './post-card';
+import { ContentActions } from './content-actions';
 import { QueryError, QueryLoading } from './query-feedback';
 import { VoteControls, VoteGroup } from './voting';
 
@@ -44,6 +47,60 @@ export function ProfileActivity({
   const [pageError, setPageError] = useState<unknown>(null);
   const [stopped, setStopped] = useState(false);
   const lock = useRef(false);
+  const revision = useRef(0);
+  const [changedPosts, setChangedPosts] = useState<
+    Record<
+      string,
+      Pick<
+        DiscussionPostFragment,
+        'title' | 'body' | 'url' | 'editedAt' | 'deletedAt'
+      >
+    >
+  >({});
+  const [changedComments, setChangedComments] = useState<
+    Record<
+      string,
+      Pick<DiscussionCommentFragment, 'body' | 'editedAt' | 'deletedAt'>
+    >
+  >({});
+  const postItems = (posts.data?.postsByAuthor.items ?? [])
+    .map((post) =>
+      post.deletedAt ? post : { ...post, ...changedPosts[post.id] },
+    )
+    .filter((post) => !post.deletedAt);
+  const commentItems = (comments.data?.commentsByAuthor.items ?? [])
+    .map((comment) =>
+      comment.deletedAt
+        ? comment
+        : { ...comment, ...changedComments[comment.id] },
+    )
+    .filter((comment) => !comment.deletedAt);
+  const visibleCount =
+    kind === 'posts' ? postItems.length : commentItems.length;
+
+  function updated(item: DiscussionPostFragment | DiscussionCommentFragment) {
+    ++revision.current;
+    if ('title' in item)
+      setChangedPosts((previous) => ({
+        ...previous,
+        [item.id]: {
+          title: item.title,
+          body: item.body,
+          url: item.url,
+          editedAt: item.editedAt,
+          deletedAt: item.deletedAt,
+        },
+      }));
+    else
+      setChangedComments((previous) => ({
+        ...previous,
+        [item.id]: {
+          body: item.body,
+          editedAt: item.editedAt,
+          deletedAt: item.deletedAt,
+        },
+      }));
+  }
 
   async function more() {
     const cursor = page?.nextCursor;
@@ -92,8 +149,14 @@ export function ProfileActivity({
     if (lock.current) return;
     lock.current = true;
     setPageError(null);
+    const current = revision.current;
     try {
       await query.refetch();
+      // A pending refresh must not erase a mutation confirmed after it started.
+      if (current === revision.current) {
+        setChangedPosts({});
+        setChangedComments({});
+      }
       setStopped(false);
     } catch {
       /* The query error renders the retry state. */
@@ -129,19 +192,29 @@ export function ProfileActivity({
       )}
       {page && (
         <>
-          {!page.items.length && (
+          {!visibleCount && (
             <div className="empty-state">
-              <h2>No {kind} yet</h2>
+              <h2>
+                {page.hasMore ? `No ${kind} on this page` : `No ${kind} yet`}
+              </h2>
             </div>
           )}
           {kind === 'posts' && posts.data && (
-            <VoteGroup
-              kind="post"
-              ids={posts.data.postsByAuthor.items.map((post) => post.id)}
-            >
+            <VoteGroup kind="post" ids={postItems.map((post) => post.id)}>
               <div className="post-list">
-                {posts.data.postsByAuthor.items.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                {postItems.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    footer={
+                      <ContentActions
+                        kind="post"
+                        item={post}
+                        onChanged={updated}
+                        reloadLabel="Reload activity"
+                      />
+                    }
+                  />
                 ))}
               </div>
             </VoteGroup>
@@ -149,12 +222,10 @@ export function ProfileActivity({
           {kind === 'comments' && comments.data && (
             <VoteGroup
               kind="comment"
-              ids={comments.data.commentsByAuthor.items.map(
-                (comment) => comment.id,
-              )}
+              ids={commentItems.map((comment) => comment.id)}
             >
               <div className="post-list">
-                {comments.data.commentsByAuthor.items.map((comment) => (
+                {commentItems.map((comment) => (
                   <article
                     className="post-card activity-comment"
                     key={comment.id}
@@ -185,6 +256,12 @@ export function ProfileActivity({
                         <ArrowUpRight size={16} /> Open discussion
                       </Link>
                     </div>
+                    <ContentActions
+                      kind="comment"
+                      item={comment}
+                      onChanged={updated}
+                      reloadLabel="Reload activity"
+                    />
                   </article>
                 ))}
               </div>
@@ -212,10 +289,9 @@ export function ProfileActivity({
               {pending ? 'Loading...' : `Load more ${kind}`}
             </button>
           )}
-          {!!page.items.length &&
-            (!page.hasMore || !page.nextCursor || stopped) && (
-              <p className="end-of-list">End of this activity.</p>
-            )}
+          {!!visibleCount && (!page.hasMore || !page.nextCursor || stopped) && (
+            <p className="end-of-list">End of this activity.</p>
+          )}
         </>
       )}
     </>

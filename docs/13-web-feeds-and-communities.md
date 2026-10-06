@@ -14,9 +14,21 @@ display a desktop discovery rail with up to five public communities, ordered
 by the backend's member-count/ID ordering. This is a popular-community list,
 not a list of the caller's memberships.
 
+The topbar is sticky with an opaque background above scrolling content. Its
+offset follows the desktop/tablet shell inset. The discovery rail sticks below
+the topbar and scrolls independently when taller than the available viewport;
+it is keyboard-focusable. Post, profile-tab, and comment anchors reserve room
+below the header. The rail remains hidden at widths of 1050px or less, and the
+topbar retains its existing mobile-hidden layout at 640px or less.
+
 The desktop sidebar is sticky and bounded to the viewport height, with its
 own overflow scrolling. On mobile it becomes normal page content and its
-community shortcuts use an expandable section. Recently visited shows the
+community shortcuts use an expandable section. Recently visited and Your
+communities each have independent disclosure buttons; collapsing keeps the
+loaded list mounted. Long sidebar slugs truncate with an ellipsis, with the
+full slug and name available in the link tooltip. The sidebar uses a thin,
+space-reserving scrollbar: its thumb appears on hover or keyboard focus and
+remains visible on devices without hover. Recently visited shows the
 last three distinct, successfully loaded community pages, newest first.
 Only slug/name pairs are stored under an account-specific localStorage key;
 guest history is separate. Invalid storage is ignored, and blocked storage
@@ -79,19 +91,19 @@ an explicit `updateQuery` to merge results. See
   request retry loops are configured.
 - Refresh reloads the first feed page and resets its pagination position.
 
-Global and community feeds automatically request the next page when an
+Global feeds, community feeds, and the directory request the next page when an
 `IntersectionObserver` sentinel comes within 240px of the viewport bottom.
 Automatic requests preserve the reading position and stop at pagination
-boundaries, after an error, or when a response adds no new posts or repeats
+boundaries, after an error, or when a response adds no new rows or repeats
 the requested cursor. The load-more button remains available for manual
 loading, retry, and browsers without `IntersectionObserver`. Manual loading
-scrolls to and focuses the first newly appended post, rather than following
-the button down the page. Successful refresh resets automatic paging.
-The community directory retains explicit button pagination.
+scrolls to and focuses the first newly appended post or community, rather
+than following the button down the page. Successful feed refresh resets
+automatic paging.
 
 Next-page requests display a centered spinner and a live loading status at
-the end of the current posts for at least 700ms, or until the request settles
-if it takes longer. Newly fetched posts appear after this interval; pagination
+the end of the current posts or communities for at least 700ms, or until the
+request settles if it takes longer. Newly fetched rows appear after this interval; pagination
 and refresh remain locked during it. Existing posts remain readable, and
 reduced-motion preferences disable spinner animation.
 
@@ -153,7 +165,9 @@ Unit specs cover filter normalization, pagination boundaries, overlapping
 rows, missing-target errors, safe external links, dates/counts, and plain-text
 post rendering. Default desktop/mobile browser suites mock auth and social
 HTTP boundaries, including navigation, filter/history behavior, pagination,
-retries, late responses, automatic feed loading, manual-load scroll position,
+retries, late responses, automatic feed/directory loading, manual-load scroll
+position,
+sidebar disclosures, long-slug truncation, hover/focus scrollbar behavior,
 empty lists, missing communities, privacy, and layout.
 Mock fixtures are test-only; the app does not fall back to demo content.
 

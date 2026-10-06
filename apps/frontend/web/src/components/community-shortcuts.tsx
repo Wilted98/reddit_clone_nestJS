@@ -1,11 +1,12 @@
 'use client';
 
 import { useQuery } from '@apollo/client/react';
-import { ChevronDown, RefreshCw, ArrowDown } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -38,13 +39,49 @@ function CommunityLinks({ items }: { items: RecentCommunity[] }) {
     <ul className="shortcut-list">
       {items.map((item) => (
         <li key={item.slug}>
-          <Link href={`/r/${encodeURIComponent(item.slug)}`} title={item.name}>
+          <Link
+            href={`/r/${encodeURIComponent(item.slug)}`}
+            title={`r/${item.slug} - ${item.name}`}
+          >
             <CommunityBadge value={item.slug} />
             <span className="shortcut-label">r/{item.slug}</span>
           </Link>
         </li>
       ))}
     </ul>
+  );
+}
+
+function ShortcutSection({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const id = useId();
+  const [expanded, setExpanded] = useState(true);
+  const Chevron = expanded ? ChevronUp : ChevronDown;
+  return (
+    <section aria-label={label}>
+      <h2>
+        <button
+          type="button"
+          className="shortcut-section-toggle"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {title}
+          <Chevron size={16} aria-hidden="true" />
+        </button>
+      </h2>
+      <div id={id} hidden={!expanded}>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -73,8 +110,10 @@ export function CommunityShortcuts() {
         id="community-shortcuts"
         className={`sidebar-communities ${expanded ? 'expanded' : ''}`}
       >
-        <section aria-label="Recently visited communities">
-          <h2>Recently visited</h2>
+        <ShortcutSection
+          label="Recently visited communities"
+          title="Recently visited"
+        >
           {!loading && recent.length ? (
             <CommunityLinks items={recent} />
           ) : (
@@ -82,9 +121,11 @@ export function CommunityShortcuts() {
               {loading ? 'Loading...' : 'No recent visits yet.'}
             </p>
           )}
-        </section>
-        <section aria-label="Subscribed communities">
-          <h2>Your communities</h2>
+        </ShortcutSection>
+        <ShortcutSection
+          label="Subscribed communities"
+          title="Your communities"
+        >
           {account ? (
             <Subscriptions key={account.id} />
           ) : (
@@ -92,7 +133,7 @@ export function CommunityShortcuts() {
               {loading ? 'Loading...' : <Link href="/account">Sign in</Link>}
             </p>
           )}
-        </section>
+        </ShortcutSection>
       </div>
     </>
   );
