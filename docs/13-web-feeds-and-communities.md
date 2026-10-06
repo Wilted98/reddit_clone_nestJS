@@ -25,7 +25,13 @@ The desktop sidebar is sticky and bounded to the viewport height, with its
 own overflow scrolling. On mobile it becomes normal page content and its
 community shortcuts use an expandable section. Recently visited and Your
 communities each have independent disclosure buttons; collapsing keeps the
-loaded list mounted. Long sidebar slugs truncate with an ellipsis, with the
+loaded list mounted. Both start expanded. Their preferences are shared across
+routes and stored as booleans under `roorin:sidebar-preferences` in localStorage,
+independently of account identity. Tabs synchronize via storage events; blocked
+storage falls back to shared in-memory state for client navigation, not reloads.
+Missing or invalid stored preferences use the expanded defaults. Server HTML
+uses these defaults and the browser restores saved choices during hydration.
+Long sidebar slugs truncate with an ellipsis, with the
 full slug and name available in the link tooltip. The sidebar uses a thin,
 space-reserving scrollbar: its thumb appears on hover or keyboard focus and
 remains visible on devices without hover. Recently visited shows the
@@ -43,6 +49,8 @@ refresh the active list. No popular-community data is used as a subscription
 fallback.
 
 Run the app with `npx nx dev web` and open `http://localhost:4200`.
+The directory's Create community action opens `/communities/new`; see
+[community creation](17-web-community-creation.md) for its mutation and session rules.
 See [web setup](12-web-foundation.md) for environment variables, build/start
 commands, cookie/CORS settings, and schema generation.
 

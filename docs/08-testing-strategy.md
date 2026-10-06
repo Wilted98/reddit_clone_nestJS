@@ -75,6 +75,12 @@ pending-write locks, failed drafts, confirmation, and late responses. Browser
 coverage verifies retained pages/replies, tombstones, session expiry, and
 community link hover/focus feedback; the live discussion smoke test edits and
 deletes through the UI. See [web content verification](16-web-content-editing-and-deletion.md#verification).
+Community-creation specs cover matching API validation, owner-free payloads,
+confirmed navigation, conflict/failure drafts, serialized writes, and session
+expiry. Sidebar preferences cover default visibility, independent toggles,
+navigation/reload persistence, tab synchronization, and blocked storage.
+The live discussion smoke test creates its community through the web form.
+See [community verification](17-web-community-creation.md#configuration-and-verification).
 
 ### Profile privacy and authentication rate limits
 

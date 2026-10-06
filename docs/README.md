@@ -42,3 +42,7 @@ editing, avatar safety, privacy, and verification.
 [`16-web-content-editing-and-deletion.md`](16-web-content-editing-and-deletion.md)
 documents author controls, text/link edits, deletion confirmation, retained
 threads, mutation/session safety, and verification.
+
+[`17-web-community-creation.md`](17-web-community-creation.md) documents
+authenticated community creation, validation, owner membership, confirmed
+navigation, error/session handling, and verification.

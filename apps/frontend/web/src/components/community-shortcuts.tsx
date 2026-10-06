@@ -22,6 +22,13 @@ import {
   RecentCommunity,
 } from '../lib/recent-communities';
 import { CommunityBadge } from './community-badge';
+import {
+  parseSidebarPreferences,
+  readSidebarPreferences,
+  SidebarSection,
+  subscribeSidebarPreferences,
+  toggleSidebarSection,
+} from '../lib/sidebar-preferences';
 import { useSession } from './session-provider';
 
 function subscribe(callback: () => void) {
@@ -53,16 +60,23 @@ function CommunityLinks({ items }: { items: RecentCommunity[] }) {
 }
 
 function ShortcutSection({
+  section,
   label,
   title,
   children,
 }: {
+  section: SidebarSection;
   label: string;
   title: string;
   children: React.ReactNode;
 }) {
   const id = useId();
-  const [expanded, setExpanded] = useState(true);
+  const snapshot = useSyncExternalStore(
+    subscribeSidebarPreferences,
+    readSidebarPreferences,
+    serverSnapshot,
+  );
+  const expanded = parseSidebarPreferences(snapshot)[section];
   const Chevron = expanded ? ChevronUp : ChevronDown;
   return (
     <section aria-label={label}>
@@ -72,7 +86,7 @@ function ShortcutSection({
           className="shortcut-section-toggle"
           aria-expanded={expanded}
           aria-controls={id}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => toggleSidebarSection(section)}
         >
           {title}
           <Chevron size={16} aria-hidden="true" />
@@ -111,6 +125,7 @@ export function CommunityShortcuts() {
         className={`sidebar-communities ${expanded ? 'expanded' : ''}`}
       >
         <ShortcutSection
+          section="recent"
           label="Recently visited communities"
           title="Recently visited"
         >
@@ -123,6 +138,7 @@ export function CommunityShortcuts() {
           )}
         </ShortcutSection>
         <ShortcutSection
+          section="subscriptions"
           label="Subscribed communities"
           title="Your communities"
         >

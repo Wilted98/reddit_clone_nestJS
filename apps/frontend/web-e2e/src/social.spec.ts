@@ -781,6 +781,295 @@ test('retries an initial feed failure without exposing server internals', async 
   await expect(page.getByRole('article')).toHaveCount(3);
 });
 
+test('creates a community from the directory, validates fields and opens the real response slug', async ({
+  page,
+}, testInfo) => {
+  let created: (typeof communities)[number] | null = null;
+  const operations = await mockAPIs(
+    page,
+    ({ operationName, variables }) => {
+      if (operationName === 'CreateCommunity') {
+        const input = variables.input as {
+          name: string;
+          slug: string;
+          description?: string;
+        };
+        created = {
+          ...communities[0],
+          ...input,
+          id: 'created',
+          memberCount: 1,
+          description: input.description ?? '',
+        };
+        return { data: { createCommunity: created } };
+      }
+      if (operationName === 'CommunityDetails' && created)
+        return { data: { community: created } };
+      if (operationName === 'SubscribedCommunities')
+        return {
+          data: { myCommunities: communityPage(created ? [created] : []) },
+        };
+      return {};
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities');
+  await page
+    .getByRole('link', { name: 'Create community', exact: true })
+    .click();
+  await expect(page).toHaveURL('/communities/new');
+  const form = page.getByRole('form', { name: 'Create a community' });
+  await form.getByLabel('Name', { exact: true }).fill('ab');
+  await form.getByLabel('Slug', { exact: true }).fill('Invalid-slug');
+  await form
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(form.getByLabel('Name', { exact: true })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await expect(
+    form.getByText('Use lowercase letters, numbers, or underscores.'),
+  ).toBeVisible();
+  expect(
+    operations.filter((op) => op.operationName === 'CreateCommunity'),
+  ).toHaveLength(0);
+  await form.getByLabel('Name', { exact: true }).fill(' New makers ');
+  await form.getByLabel('Slug', { exact: true }).fill(' new_makers ');
+  await form
+    .getByLabel('Description', { exact: true })
+    .fill(' Small projects. ');
+  await expect(form.getByText('17/500')).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('community-creation.png'),
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+  await form
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(page).toHaveURL('/r/new_makers');
+  await expect(
+    page.getByRole('heading', { name: 'New makers', exact: true }),
+  ).toBeVisible();
+  if (testInfo.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Community shortcuts' }).click();
+  await expect(
+    page
+      .getByRole('region', { name: 'Subscribed communities' })
+      .getByRole('link', { name: 'r/new_makers', exact: true }),
+  ).toBeVisible();
+  expect(
+    operations
+      .filter((op) => op.operationName === 'CreateCommunity')
+      .map((op) => op.variables),
+  ).toEqual([
+    {
+      input: {
+        name: 'New makers',
+        slug: 'new_makers',
+        description: 'Small projects.',
+      },
+    },
+  ]);
+  await expect(
+    page.getByText(privateAccount.email, { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole('region', { name: 'r/new_makers feed', exact: true })
+    .getByRole('link', { name: 'Create post', exact: true })
+    .click();
+  await expect(page).toHaveURL('/submit?community=new_makers');
+  await expect(page.getByLabel('Community', { exact: true })).toHaveValue(
+    'new_makers',
+  );
+});
+
+test('retains community drafts after a slug conflict and server failure without automatically retrying', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await mockAPIs(
+    page,
+    ({ operationName }) => {
+      if (operationName !== 'CreateCommunity') return {};
+      attempts++;
+      return attempts === 1
+        ? {
+            errors: [
+              {
+                message: 'Conflict',
+                extensions: {
+                  originalError: {
+                    statusCode: 409,
+                    message: 'r/craft already exists',
+                  },
+                },
+              },
+            ],
+          }
+        : failure(500);
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities/new');
+  const form = page.getByRole('form', { name: 'Create a community' });
+  await form.getByLabel('Name', { exact: true }).fill('Craft');
+  await form.getByLabel('Slug', { exact: true }).fill('craft');
+  await form
+    .getByLabel('Description', { exact: true })
+    .fill('Keep this draft.');
+  await form
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(form.getByRole('alert')).toHaveText('r/craft already exists');
+  expect(attempts).toBe(1);
+  await form.getByLabel('Slug', { exact: true }).fill('another_craft');
+  await form
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(form.getByRole('alert')).toHaveText(
+    'Something went wrong. Please try again.',
+  );
+  await expect(form.getByLabel('Name', { exact: true })).toHaveValue('Craft');
+  await expect(form.getByLabel('Slug', { exact: true })).toHaveValue(
+    'another_craft',
+  );
+  await expect(form.getByLabel('Description', { exact: true })).toHaveValue(
+    'Keep this draft.',
+  );
+  expect(attempts).toBe(2);
+});
+
+test('serializes community creation and omits an empty description', async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const operations = await mockAPIs(
+    page,
+    async ({ operationName }) => {
+      if (operationName !== 'CreateCommunity') return {};
+      await gate;
+      return failure(500);
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities/new');
+  const form = page.getByRole('form', { name: 'Create a community' });
+  await form.getByLabel('Name', { exact: true }).fill('Makers');
+  await form.getByLabel('Slug', { exact: true }).fill('makers');
+  await form
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(
+    form.getByRole('button', { name: 'Creating...' }),
+  ).toBeDisabled();
+  await expect(form.getByLabel('Slug', { exact: true })).toBeDisabled();
+  await form.dispatchEvent('submit');
+  release();
+  await expect(form.getByRole('alert')).toBeVisible();
+  expect(
+    operations
+      .filter((op) => op.operationName === 'CreateCommunity')
+      .map((op) => op.variables),
+  ).toEqual([{ input: { name: 'Makers', slug: 'makers' } }]);
+});
+
+test('does not redirect another page when a community creation response arrives late', async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await mockAPIs(
+    page,
+    async ({ operationName }) => {
+      if (operationName !== 'CreateCommunity') return {};
+      await gate;
+      return { data: { createCommunity: communities[0] } };
+    },
+    { signedIn: true },
+  );
+  await page.goto('/communities/new');
+  const form = page.getByRole('form', { name: 'Create a community' });
+  await form.getByLabel('Name', { exact: true }).fill('Craft');
+  await form.getByLabel('Slug', { exact: true }).fill('craft');
+  await form
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(
+    form.getByRole('button', { name: 'Creating...' }),
+  ).toBeDisabled();
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Home', exact: true })
+    .click();
+  await expect(page).toHaveURL('/');
+  const response = page.waitForResponse(
+    (item) =>
+      item.request().postDataJSON()?.operationName === 'CreateCommunity',
+  );
+  release();
+  await response;
+  await page.waitForTimeout(250);
+  await expect(page).toHaveURL('/');
+  await expect(
+    page.getByRole('heading', { name: 'Home', exact: true }),
+  ).toBeVisible();
+});
+
+test('gates community creation for guests and expired sessions without replaying the mutation', async ({
+  page,
+}) => {
+  const options = { signedIn: false };
+  const operations = await mockAPIs(
+    page,
+    ({ operationName }) => {
+      if (operationName !== 'CreateCommunity') return {};
+      options.signedIn = false;
+      return {
+        errors: [
+          { message: 'Unauthorized', extensions: { code: 'UNAUTHENTICATED' } },
+        ],
+      };
+    },
+    options,
+  );
+  await page.goto('/communities/new');
+  await expect(
+    page.getByRole('link', { name: 'Sign in to create a community' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('form', { name: 'Create a community' }),
+  ).toHaveCount(0);
+  expect(
+    operations.some((op) =>
+      ['CreateCommunity', 'SubscribedCommunities'].includes(op.operationName),
+    ),
+  ).toBe(false);
+  options.signedIn = true;
+  await page.reload();
+  const form = page.getByRole('form', { name: 'Create a community' });
+  await form.getByLabel('Name', { exact: true }).fill('Makers');
+  await form.getByLabel('Slug', { exact: true }).fill('makers');
+  await form
+    .getByRole('button', { name: 'Create community', exact: true })
+    .click();
+  await expect(
+    page.getByRole('link', { name: 'Sign in to create a community' }),
+  ).toBeVisible();
+  expect(
+    operations.filter((op) => op.operationName === 'CreateCommunity'),
+  ).toHaveLength(1);
+});
+
 const fullCommunityPage = Array.from({ length: 20 }, (_, index) => ({
   ...communities[0],
   id: `directory-${index}`,

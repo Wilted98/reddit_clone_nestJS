@@ -3,7 +3,8 @@
 The core discussion APIs are implemented. The Next.js web app supports account
 sessions, public feed/community browsing, post composition, bounded discussions,
 and voting, public profiles/activity, and own bio/avatar settings. Content
-editing/deletion are implemented on discussions and own profile activity. See
+editing/deletion are implemented on discussions and own profile activity.
+Community creation is available from the directory. See
 [web foundation](12-web-foundation.md) for setup and
 [web social browsing](13-web-feeds-and-communities.md) for pagination and rendering,
 and [web discussions](14-web-posts-discussions-and-voting.md) for write workflows.
@@ -112,6 +113,7 @@ may be HTTP 400 and have a different shape, so keep a generic fallback.
 4. Public profile/activity + own bio/avatar settings (implemented).
 5. Author-only post/comment editing and deletion on discussions and own profiles
    ([content controls](16-web-content-editing-and-deletion.md)).
+6. Authenticated community creation ([community creation](17-web-community-creation.md)).
 
 Membership context + community settings are the next backend batch and can
 be built alongside the community UI. Moderation + bounded search follow when
