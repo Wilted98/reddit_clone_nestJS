@@ -86,6 +86,7 @@ type Mutation {
 }
 
 type Post {
+  authorAvatarUrl: String
   authorId: String!
   authorUsername: String!
   body: String

@@ -77,6 +77,16 @@ and Next image optimization disabled. Arbitrary avatar URLs are never fetched
 by the Next server/image optimizer. Invalid schemes, URLs with credentials,
 missing images, and image load failures use initials. Image containers have
 fixed dimensions, so loading/error states do not shift the layout.
+Post cards on Home, community feeds, profile activity, and discussions use
+the same avatar renderer at 42px, with lazy loading and the username retained.
+Social's nullable `Post.authorAvatarUrl` resolves current profile data via
+auth's internal `GetUserAvatars` RPC. A per-GraphQL-context DataLoader batches
+and deduplicates author IDs, with at most 100 IDs per RPC and a 1.5-second
+timeout. Auth selects only IDs and avatar URLs; email/password never cross
+this endpoint. Missing users/avatars and RPC failures return `null` so posts
+remain readable with initials. No avatar snapshot is stored in social and no
+database migration is needed. A new request reads current profile data after
+an avatar change or removal; an already rendered page updates on refresh.
 An external avatar host still receives the viewer's image request/IP;
 there is no upload or image-proxy service in this implementation.
 
@@ -107,5 +117,12 @@ npm run test:e2e:web:live -- --workers=1
 
 The live profile smoke test creates a unique account, saves a bio using the
 real cookie/API, verifies reload/public activity/anonymous access, and logs
-out. Its test account remains in the local auth database. This feature uses
-existing API contracts and requires no new migrations or dependencies.
+out. The live discussion smoke test updates an existing post author's avatar
+through auth and verifies its image in discussion, profile activity, and Home
+through social's real gRPC lookup. Test accounts remain in the local auth
+database. Profile editing uses
+existing profile mutations and requires no database migrations. The social
+avatar field adds the `dataloader` runtime dependency and extends the internal
+auth protobuf contract; regenerate bindings with `npm run codegen` and restart
+both backends when deploying this change. Avatar URLs still point at external
+images; there is no server-side upload, resizing, or proxy.

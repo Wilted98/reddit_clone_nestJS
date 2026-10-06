@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { BrowseFeedQuery } from '../graphql/generated/social';
 import { formatCount, formatDate, safeExternalLink } from '../lib/content';
-import { CommunityBadge } from './community-badge';
+import { ProfileAvatar } from './profile-avatar';
 import { VoteControls } from './voting';
 import { profileHref } from '../lib/profile';
 
@@ -27,7 +27,11 @@ export function PostCard({
       data-testid={`post-${post.id}`}
     >
       <div className="post-meta">
-        <CommunityBadge value={post.authorUsername} />
+        <ProfileAvatar
+          username={post.authorUsername}
+          avatarUrl={post.authorAvatarUrl}
+          sizes="42px"
+        />
         <span>
           <Link className="author-link" href={profileHref(post.authorUsername)}>
             <strong>u/{post.authorUsername}</strong>

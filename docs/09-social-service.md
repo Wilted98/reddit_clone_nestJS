@@ -82,6 +82,16 @@ not expose the caller's role in arbitrary communities.
 
 ## Posts and comments
 
+`Post.authorAvatarUrl` is nullable public profile data, resolved from auth by
+author ID rather than stored on posts. Auth's internal `GetUserAvatars` RPC
+selects only user IDs and avatar URLs. A per-GraphQL-context DataLoader
+deduplicates authors and batches up to 100 IDs per call. A 1.5-second timeout,
+missing author, empty avatar, or RPC failure resolves to `null`; public feeds
+remain available if auth is down. The next request sees profile edits/removals
+without a social database migration. Regenerate proto/web bindings and restart
+both services after deploying this contract change. Keep auth's gRPC listener
+on the trusted internal network; this lookup does not require a viewer token.
+
 All GraphQL `Post` responses expose public `communitySlug` alongside
 `communityId`. A field resolver reads the associated community's slug so
 feed, detail, activity, and mutation responses use the same source of truth.

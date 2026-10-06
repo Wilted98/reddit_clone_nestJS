@@ -15,6 +15,9 @@ export class Post extends AbstractModel {
   @Field()
   authorUsername!: string;
 
+  @Field(() => String, { nullable: true })
+  authorAvatarUrl?: string | null;
+
   @Field()
   title!: string;
 

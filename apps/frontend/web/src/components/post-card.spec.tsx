@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { PostCard } from './post-card';
 import type { BrowseFeedQuery } from '../graphql/generated/social';
 
@@ -7,6 +7,7 @@ const post: BrowseFeedQuery['feed']['items'][number] = {
   id: 'one',
   title: 'A conversation',
   authorUsername: 'alex',
+  authorAvatarUrl: null,
   body: '<img src=x onerror=alert(1)>',
   url: 'javascript:alert(1)',
   communityId: 'craft',
@@ -18,6 +19,32 @@ const post: BrowseFeedQuery['feed']['items'][number] = {
 };
 
 describe('post cards', () => {
+  it('shows a current avatar without replacing the author name and falls back on errors', () => {
+    render(
+      <PostCard
+        post={{ ...post, authorAvatarUrl: 'https://example.com/avatar.png' }}
+      />,
+    );
+    const avatar = screen.getByRole('img', { name: "alex's avatar" });
+    expect(avatar).toHaveAttribute('src', 'https://example.com/avatar.png');
+    expect(avatar).toHaveAttribute('loading', 'lazy');
+    expect(avatar).toHaveAttribute('referrerpolicy', 'no-referrer');
+    expect(screen.getByRole('link', { name: 'u/alex' })).toHaveAttribute(
+      'href',
+      '/u/alex',
+    );
+    fireEvent.error(avatar);
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByText('A')).toBeInTheDocument();
+  });
+
+  it('rejects unsafe avatar URLs', () => {
+    render(
+      <PostCard post={{ ...post, authorAvatarUrl: 'javascript:alert(1)' }} />,
+    );
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByText('A')).toBeInTheDocument();
+  });
   it('renders user text as text and rejects executable links', () => {
     render(<PostCard post={post} />);
     expect(screen.getByText(post.body ?? '')).toBeInTheDocument();

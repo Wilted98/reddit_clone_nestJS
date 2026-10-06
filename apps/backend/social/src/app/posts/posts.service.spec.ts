@@ -9,6 +9,7 @@ import { CommunitiesService } from '../communities/communities.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PostsModule } from './posts.module';
 import { PostsService } from './posts.service';
+import { AuthorAvatarsService } from './author-avatars.service';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -70,6 +71,8 @@ describe('PostsService', () => {
       .useValue(prisma)
       .overrideProvider(CommunitiesService)
       .useValue(communities)
+      .overrideProvider(AuthorAvatarsService)
+      .useValue({ getAvatar: jest.fn().mockResolvedValue(null) })
       .overrideGuard(GqlAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();

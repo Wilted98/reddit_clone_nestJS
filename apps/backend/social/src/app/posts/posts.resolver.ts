@@ -1,6 +1,7 @@
 import { UseGuards } from '@nestjs/common';
 import {
   Args,
+  Context,
   Mutation,
   Parent,
   Query,
@@ -14,10 +15,19 @@ import { AuthorActivityArgs } from './dto/author-activity.args';
 import { UpdatePostInput } from './dto/update-post.input';
 import { Post, PostPage } from './models/post.model';
 import { PostsService } from './posts.service';
+import { AuthorAvatarsService } from './author-avatars.service';
 
 @Resolver(() => Post)
 export class PostsResolver {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(
+    private readonly postsService: PostsService,
+    private readonly authorAvatars: AuthorAvatarsService,
+  ) {}
+
+  @ResolveField(() => String, { nullable: true })
+  authorAvatarUrl(@Parent() post: Post, @Context() context: object) {
+    return this.authorAvatars.getAvatar(context, post.authorId);
+  }
 
   @ResolveField(() => String)
   communitySlug(@Parent() post: Post) {

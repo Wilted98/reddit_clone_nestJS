@@ -12,6 +12,7 @@ const post: DiscussionPostFragment = {
   url: null,
   authorId: 'owner',
   authorUsername: 'alex',
+  authorAvatarUrl: null,
   communityId: 'craft',
   communitySlug: 'craft',
   createdAt: '2026-10-06T00:00:00Z',

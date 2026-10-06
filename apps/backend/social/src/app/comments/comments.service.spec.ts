@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { GqlAuthGuard } from '@roorin/nestjs';
 import { PostsService } from '../posts/posts.service';
+import { AuthorAvatarsService } from '../posts/author-avatars.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommentsModule } from './comments.module';
 import { CommentsService } from './comments.service';
@@ -74,6 +75,8 @@ describe('CommentsService', () => {
       .useValue(prisma)
       .overrideProvider(PostsService)
       .useValue(posts)
+      .overrideProvider(AuthorAvatarsService)
+      .useValue({ getAvatar: jest.fn().mockResolvedValue(null) })
       .overrideGuard(GqlAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();

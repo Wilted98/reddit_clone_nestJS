@@ -3,6 +3,8 @@ import {
   AuthenticateRequest,
   AuthServiceController,
   AuthServiceControllerMethods,
+  GetUserAvatarsRequest,
+  GetUserAvatarsResponse,
   User,
 } from '@roorin/proto';
 import { UsersService } from '../users/users.service';
@@ -13,6 +15,18 @@ import { TokenPayload } from './token-payload.interface';
 @AuthServiceControllerMethods()
 export class AuthController implements AuthServiceController {
   constructor(private readonly usersService: UsersService) {}
+
+  async getUserAvatars(
+    request: GetUserAvatarsRequest,
+  ): Promise<GetUserAvatarsResponse> {
+    const users = await this.usersService.getUserAvatars(request.userIds ?? []);
+    return {
+      avatars: users.map((user) => ({
+        userId: user.id,
+        avatarUrl: user.avatarUrl ?? '',
+      })),
+    };
+  }
 
   @UseGuards(JwtAuthGuard)
   async authenticate(

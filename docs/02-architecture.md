@@ -83,6 +83,12 @@ collision is intentional, not an oversight:
   by calling `auth`'s gRPC `Authenticate` endpoint instead of verifying
   anything itself. Social imports this guard for its protected mutations.
 
+Social also reads current public author avatar URLs through auth's bounded
+`GetUserAvatars` gRPC endpoint. Request-local batching prevents one RPC per
+post; this endpoint never returns account email or password. Avatars are not
+copied into the social database. See [social](09-social-service.md) for timeout
+and fallback behavior.
+
 Social's `AuthModule` registers the gRPC client for `AUTH_PACKAGE_NAME` and
 exports `ClientsModule`, satisfying the shared guard's dependency.
 
