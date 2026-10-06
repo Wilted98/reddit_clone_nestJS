@@ -34,3 +34,7 @@ error states, API boundaries, and browser verification.
 [`14-web-posts-discussions-and-voting.md`](14-web-posts-discussions-and-voting.md)
 documents text/link posting, membership-gated publishing, incremental comment
 threads, private vote restoration, mutation safety, and browser verification.
+
+[`15-web-profiles-and-settings.md`](15-web-profiles-and-settings.md) documents
+public profiles, independent activity pagination, caller-scoped bio/avatar
+editing, avatar safety, privacy, and verification.

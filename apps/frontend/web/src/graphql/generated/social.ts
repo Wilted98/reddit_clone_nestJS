@@ -166,6 +166,64 @@ export type DiscussionCommentFragment = {
   hasReplies: boolean;
 };
 
+export type AuthorPostsQueryVariables = Exact<{
+  authorId: string;
+  cursor?: string | null | undefined;
+  limit: number;
+}>;
+
+export type AuthorPostsQuery = {
+  postsByAuthor: {
+    __typename: 'PostPage';
+    nextCursor: string | null;
+    hasMore: boolean;
+    items: Array<{
+      __typename: 'Post';
+      id: string;
+      title: string;
+      body: string | null;
+      url: string | null;
+      authorId: string;
+      authorUsername: string;
+      communityId: string;
+      communitySlug: string;
+      createdAt: string;
+      editedAt: string | null;
+      deletedAt: string | null;
+      score: number;
+      commentCount: number;
+    }>;
+  };
+};
+
+export type AuthorCommentsQueryVariables = Exact<{
+  authorId: string;
+  cursor?: string | null | undefined;
+  limit: number;
+}>;
+
+export type AuthorCommentsQuery = {
+  commentsByAuthor: {
+    __typename: 'CommentPage';
+    nextCursor: string | null;
+    hasMore: boolean;
+    items: Array<{
+      __typename: 'Comment';
+      id: string;
+      postId: string;
+      parentId: string | null;
+      authorId: string;
+      authorUsername: string;
+      body: string;
+      createdAt: string;
+      editedAt: string | null;
+      deletedAt: string | null;
+      score: number;
+      hasReplies: boolean;
+    }>;
+  };
+};
+
 export type DiscussionQueryVariables = Exact<{
   id: string;
 }>;
@@ -880,6 +938,256 @@ export const BrowseFeedDocument = {
     },
   ],
 } as unknown as DocumentNode<BrowseFeedQuery, BrowseFeedQueryVariables>;
+export const AuthorPostsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AuthorPosts' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'authorId' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'String' },
+            },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'cursor' },
+          },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'limit' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'postsByAuthor' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'authorId' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'authorId' },
+                },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'cursor' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'cursor' },
+                },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'limit' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'limit' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'items' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'DiscussionPost' },
+                      },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'nextCursor' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'hasMore' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'DiscussionPost' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Post' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'body' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'deletedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'score' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'commentCount' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AuthorPostsQuery, AuthorPostsQueryVariables>;
+export const AuthorCommentsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AuthorComments' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'authorId' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'String' },
+            },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'cursor' },
+          },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'limit' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'commentsByAuthor' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'authorId' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'authorId' },
+                },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'cursor' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'cursor' },
+                },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'limit' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'limit' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'items' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'DiscussionComment' },
+                      },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'nextCursor' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'hasMore' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'DiscussionComment' },
+      typeCondition: {
+        kind: 'NamedType',
+        name: { kind: 'Name', value: 'Comment' },
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'postId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'parentId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'body' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'deletedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'score' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'hasReplies' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AuthorCommentsQuery, AuthorCommentsQueryVariables>;
 export const DiscussionDocument = {
   kind: 'Document',
   definitions: [

@@ -5,6 +5,7 @@ import type { BrowseFeedQuery } from '../graphql/generated/social';
 import { formatCount, formatDate, safeExternalLink } from '../lib/content';
 import { CommunityBadge } from './community-badge';
 import { VoteControls } from './voting';
+import { profileHref } from '../lib/profile';
 
 export function PostCard({
   post,
@@ -26,7 +27,9 @@ export function PostCard({
       <div className="post-meta">
         <CommunityBadge value={post.authorUsername} />
         <span>
-          <strong>u/{post.authorUsername}</strong>
+          <Link className="author-link" href={profileHref(post.authorUsername)}>
+            <strong>u/{post.authorUsername}</strong>
+          </Link>
           <span className="post-origin">
             <Link href={`/r/${encodeURIComponent(post.communitySlug)}`}>
               r/{post.communitySlug}

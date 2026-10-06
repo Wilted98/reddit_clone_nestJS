@@ -2,10 +2,13 @@
 
 The core discussion APIs are implemented. The Next.js web app supports account
 sessions, public feed/community browsing, post composition, bounded discussions,
-and voting. Profile/editing screens remain frontend work. See
+and voting, public profiles/activity, and own bio/avatar settings. Content
+editing/deletion screens remain frontend work. See
 [web foundation](12-web-foundation.md) for setup and
 [web social browsing](13-web-feeds-and-communities.md) for pagination and rendering,
 and [web discussions](14-web-posts-discussions-and-voting.md) for write workflows.
+See [web profiles/settings](15-web-profiles-and-settings.md) for public/private
+profile ownership, activity pagination, and caller-scoped editing.
 This is an API handoff, not a declaration
 that membership/settings, moderation, recovery, or public-deployment work
 is complete. Keep frontend branches to one or two workflows at a time.
@@ -105,7 +108,8 @@ may be HTTP 400 and have a different shape, so keep a generic fallback.
 1. Foundation + auth/session screens (implemented).
 2. Feed + community browsing (implemented).
 3. Post composition/discussions + voting (implemented).
-4. Public profile/activity + own profile/content editing.
+4. Public profile/activity + own bio/avatar settings (implemented).
+5. Author-only post/comment editing and deletion (frontend work remaining).
 
 Membership context + community settings are the next backend batch and can
 be built alongside the community UI. Moderation + bounded search follow when

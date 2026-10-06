@@ -32,6 +32,7 @@ function Probe() {
       <span>
         {session.loading ? 'Loading' : (session.account?.email ?? 'Guest')}
       </span>
+      <span>{session.account?.bio}</span>
       {session.error && <span>{session.error}</span>}
       <button
         onClick={() =>
@@ -44,6 +45,15 @@ function Probe() {
       </button>
       <button onClick={() => void session.signOut().catch(() => undefined)}>
         Logout
+      </button>
+      <button
+        onClick={() =>
+          void session
+            .updateProfile({ bio: 'Updated bio' })
+            .catch(() => undefined)
+        }
+      >
+        Save profile
       </button>
     </>
   );
@@ -149,5 +159,79 @@ describe('cookie session lifecycle', () => {
     await waitFor(() => expect(auth.mutate).toHaveBeenCalled());
     expect(screen.getByText(account.email)).toBeInTheDocument();
     expect(auth.clearStore).not.toHaveBeenCalled();
+  });
+  it('updates own account state without putting account data into social cache', async () => {
+    auth.mutate.mockResolvedValue({
+      data: { updateUser: { ...account, bio: 'Updated bio' } },
+    });
+    render(
+      <SessionProvider>
+        <Probe />
+      </SessionProvider>,
+    );
+    await screen.findByText(account.email);
+    fireEvent.click(screen.getByText('Save profile'));
+    expect(await screen.findByText('Updated bio')).toBeInTheDocument();
+    expect(auth.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ variables: { input: { bio: 'Updated bio' } } }),
+    );
+    expect(social.clearStore).not.toHaveBeenCalled();
+  });
+  it('does not replace a session with an unrelated account response', async () => {
+    auth.mutate.mockResolvedValue({
+      data: { updateUser: { ...account, id: 'other', bio: 'Updated bio' } },
+    });
+    render(
+      <SessionProvider>
+        <Probe />
+      </SessionProvider>,
+    );
+    await screen.findByText(account.email);
+    fireEvent.click(screen.getByText('Save profile'));
+    await waitFor(() => expect(auth.mutate).toHaveBeenCalled());
+    expect(screen.queryByText('Updated bio')).not.toBeInTheDocument();
+  });
+  it('ignores a save response that arrives after logout', async () => {
+    let resolve!: (value: unknown) => void;
+    auth.mutate.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    render(
+      <SessionProvider>
+        <Probe />
+      </SessionProvider>,
+    );
+    await screen.findByText(account.email);
+    fireEvent.click(screen.getByText('Save profile'));
+    await waitFor(() => expect(auth.mutate).toHaveBeenCalledTimes(1));
+    auth.mutate.mockResolvedValueOnce({ data: { logout: true } });
+    fireEvent.click(screen.getByText('Logout'));
+    await screen.findByText('Guest');
+    await act(async () => {
+      resolve({ data: { updateUser: { ...account, bio: 'Updated bio' } } });
+    });
+    expect(screen.getByText('Guest')).toBeInTheDocument();
+    expect(screen.queryByText('Updated bio')).not.toBeInTheDocument();
+  });
+  it('rechecks the session after an expired-session save failure', async () => {
+    const failure = new CombinedGraphQLErrors({
+      errors: [
+        { message: 'Unauthorized', extensions: { code: 'UNAUTHENTICATED' } },
+      ],
+    });
+    auth.mutate.mockRejectedValue(failure);
+    render(
+      <SessionProvider>
+        <Probe />
+      </SessionProvider>,
+    );
+    await screen.findByText(account.email);
+    auth.query.mockRejectedValueOnce(failure);
+    fireEvent.click(screen.getByText('Save profile'));
+    await screen.findByText('Guest');
+    expect(auth.query).toHaveBeenCalledTimes(2);
   });
 });

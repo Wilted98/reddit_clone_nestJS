@@ -11,6 +11,9 @@ account view live at `/account`. See
 pagination contracts. Public discussions live at `/posts/[id]`; authenticated
 post composition lives at `/submit`. Their write, comment, and voting contracts
 are in [web discussions](14-web-posts-discussions-and-voting.md).
+Public profiles live at `/u/[username]`; own bio/avatar settings live in
+`/account#profile-settings`. Their privacy, activity, and image contracts are
+in [web profiles/settings](15-web-profiles-and-settings.md).
 
 ## Stack
 
@@ -195,6 +198,8 @@ account/community, publishes a post/comment, verifies votes and reload, and
 soft-deletes its post/comment afterward. Its account, community, membership,
 and soft-deleted rows remain as test fixtures. Stop unrelated servers on port 4200 in CI; local
 Playwright runs reuse an existing development server there.
+The live profile test saves a real caller-scoped bio, verifies public/anonymous
+profiles and empty activity, and leaves its unique account as a test fixture.
 
 When no server is running, Playwright starts Next directly and shuts it down
 afterward. The ordinary development shortcut is `npm run dev:web`; its Nx
