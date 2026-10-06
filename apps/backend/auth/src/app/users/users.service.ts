@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -58,6 +59,20 @@ export class UsersService {
       }
       throw err;
     }
+  }
+
+  async getUserAvatars(userIds: string[]) {
+    if (
+      userIds.length > 100 ||
+      userIds.some((id) => !id.trim() || id.length > 128)
+    ) {
+      throw new BadRequestException('Provide at most 100 valid user IDs.');
+    }
+    if (!userIds.length) return [];
+    return this.prismaService.client.user.findMany({
+      where: { id: { in: [...new Set(userIds)] } },
+      select: { id: true, avatarUrl: true },
+    });
   }
 
   async getUser(args: Prisma.UserWhereUniqueInput) {

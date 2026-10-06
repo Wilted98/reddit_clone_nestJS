@@ -28,6 +28,7 @@ function post(id: string, username = 'alex') {
     url: null as string | null,
     authorId: `${username}-id`,
     authorUsername: username,
+    authorAvatarUrl: null,
     communityId: 'craft-id',
     communitySlug: 'craft',
     createdAt,

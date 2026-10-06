@@ -135,6 +135,36 @@ test('publishes, edits, votes and soft-deletes real content with the Nest cookie
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'A real web discussion',
     );
+    // Existing posts pick up profile changes through social's real gRPC lookup.
+    const avatarUrl = 'https://avatars.example/live-author.jpg';
+    await page.route(avatarUrl, (route) =>
+      route.fulfill({
+        path: 'apps/frontend/web/public/community-street.jpg',
+        contentType: 'image/jpeg',
+      }),
+    );
+    const avatarResponse = await page.request.post(
+      'http://localhost:3000/graphql',
+      {
+        data: {
+          query:
+            'mutation($input: UpdateUserInput!) { updateUser(updateUserInput: $input) { avatarUrl } }',
+          variables: { input: { avatarUrl } },
+        },
+      },
+    );
+    expect((await avatarResponse.json()).errors).toBeUndefined();
+    await page.reload();
+    const authorAvatar = page
+      .getByTestId(`post-${postId}`)
+      .getByRole('img', { name: `${username}'s avatar` });
+    await expect(authorAvatar).toBeVisible();
+    await expect(authorAvatar).toHaveAttribute('src', avatarUrl);
+    expect(
+      await authorAvatar.evaluate(
+        (node: HTMLImageElement) => node.naturalWidth,
+      ),
+    ).toBeGreaterThan(0);
     await page
       .getByLabel('Add a comment')
       .fill('A comment from the real web client.');
@@ -204,6 +234,9 @@ test('publishes, edits, votes and soft-deletes real content with the Nest cookie
       'An edited real comment.',
     );
     await page.goto(`/u/${username}`);
+    await expect(
+      discussionPost.getByRole('img', { name: `${username}'s avatar` }),
+    ).toBeVisible();
     await discussionPost
       .getByRole('button', { name: 'Post options', exact: true })
       .click();
@@ -263,6 +296,9 @@ test('publishes, edits, votes and soft-deletes real content with the Nest cookie
         .getByRole('link', { name: `r/${slug}`, exact: true }),
     ).toBeVisible();
     const feedPost = page.getByTestId(`post-${postId}`);
+    await expect(
+      feedPost.getByRole('img', { name: `${username}'s avatar` }),
+    ).toBeVisible();
     await expect(
       feedPost.getByRole('link', { name: `r/${slug}`, exact: true }),
     ).toBeVisible();

@@ -42,6 +42,7 @@ function post(
     body: 'What have you been making lately? I finally finished the little project that has been sitting on my desk all week.',
     url: null,
     authorUsername: 'selene',
+    authorAvatarUrl: null,
     communityId: 'craft',
     communitySlug: 'craft',
     createdAt: '2026-10-05T10:00:00Z',
@@ -191,6 +192,87 @@ const joined = communities.slice(0, 2).map((item, index) => ({
   ...item,
   ownerId: index === 0 ? 'someone-else' : privateAccount.id,
 }));
+
+test('renders author avatars at fixed size with safe fallbacks and no per-author profile queries', async ({
+  page,
+}, testInfo) => {
+  const avatarUrl = 'https://avatars.example/selene.jpg';
+  const authQueries: string[] = [];
+  page.on('request', (request) => {
+    if (
+      request.url() === 'http://localhost:3000/graphql' &&
+      request.method() === 'POST'
+    ) {
+      authQueries.push(request.postDataJSON().operationName);
+    }
+  });
+  await page.route(avatarUrl, (route) =>
+    route.fulfill({
+      path: 'apps/frontend/web/public/community-street.jpg',
+      contentType: 'image/jpeg',
+    }),
+  );
+  await page.route('https://avatars.example/broken.jpg', (route) =>
+    route.fulfill({ status: 404 }),
+  );
+  const operations = await mockAPIs(page, (operation) =>
+    operation.operationName === 'BrowseFeed'
+      ? {
+          data: {
+            feed: feedPage([
+              post('avatar', 'An author with an avatar', {
+                authorAvatarUrl: avatarUrl,
+              }),
+              post('initial', 'An author without an avatar'),
+              post('unsafe', 'An invalid avatar', {
+                authorAvatarUrl: 'javascript:alert(1)',
+              }),
+              post('broken', 'An unavailable avatar', {
+                authorAvatarUrl: 'https://avatars.example/broken.jpg',
+              }),
+            ]),
+          },
+        }
+      : {},
+  );
+  await page.goto('/');
+  const card = page.getByTestId('post-avatar');
+  const image = card.getByRole('img', { name: "selene's avatar" });
+  await expect(image).toBeVisible();
+  expect(
+    await image.evaluate((node: HTMLImageElement) => node.naturalWidth),
+  ).toBeGreaterThan(0);
+  await expect(image).toHaveAttribute('loading', 'lazy');
+  await expect(image).toHaveAttribute('referrerpolicy', 'no-referrer');
+  const bounds = await card.locator('.profile-avatar').boundingBox();
+  expect(bounds?.width).toBe(42);
+  expect(bounds?.height).toBe(42);
+  await expect(card.getByRole('link', { name: 'u/selene' })).toHaveAttribute(
+    'href',
+    '/u/selene',
+  );
+  for (const id of ['initial', 'unsafe', 'broken']) {
+    const fallback = page.getByTestId(`post-${id}`);
+    await fallback.scrollIntoViewIfNeeded();
+    await expect(fallback.locator('.profile-avatar')).toHaveText('S');
+    await expect(fallback.locator('.profile-avatar img')).toHaveCount(0);
+  }
+  expect(authQueries).not.toContain('PublicProfile');
+  expect(
+    operations.filter((operation) => operation.operationName === 'BrowseFeed'),
+  ).toHaveLength(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.screenshot({
+    path: testInfo.outputPath('post-author-avatars.png'),
+    fullPage: true,
+  });
+});
 
 test('membership navigation protects owners and fits long community names', async ({
   page,

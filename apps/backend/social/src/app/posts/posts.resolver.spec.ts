@@ -2,9 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { GqlAuthGuard } from '@roorin/nestjs';
 import { PostsResolver } from './posts.resolver';
 import { PostsService } from './posts.service';
+import { AuthorAvatarsService } from './author-avatars.service';
 
 describe('PostsResolver', () => {
   let resolver: PostsResolver;
+  const avatars = { getAvatar: jest.fn() };
   let service: {
     createPost: jest.Mock;
     getPost: jest.Mock;
@@ -30,13 +32,31 @@ describe('PostsResolver', () => {
       updatePost: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PostsResolver, { provide: PostsService, useValue: service }],
+      providers: [
+        PostsResolver,
+        { provide: PostsService, useValue: service },
+        { provide: AuthorAvatarsService, useValue: avatars },
+      ],
     })
       .overrideGuard(GqlAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
     resolver = module.get<PostsResolver>(PostsResolver);
+  });
+
+  it('resolves current avatars with the request context and trusted author ID', async () => {
+    const context = { req: {} };
+    avatars.getAvatar.mockResolvedValue('https://example.com/avatar.png');
+    await expect(
+      resolver.authorAvatarUrl(
+        { authorId: 'author-1' } as Parameters<
+          typeof resolver.authorAvatarUrl
+        >[0],
+        context,
+      ),
+    ).resolves.toBe('https://example.com/avatar.png');
+    expect(avatars.getAvatar).toHaveBeenCalledWith(context, 'author-1');
   });
 
   it('creates a post using the authenticated author', async () => {

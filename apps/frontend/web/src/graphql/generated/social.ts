@@ -209,6 +209,7 @@ export type BrowseFeedQuery = {
       body: string | null;
       url: string | null;
       authorUsername: string;
+      authorAvatarUrl: string | null;
       communityId: string;
       communitySlug: string;
       createdAt: string;
@@ -227,6 +228,7 @@ export type DiscussionPostFragment = {
   url: string | null;
   authorId: string;
   authorUsername: string;
+  authorAvatarUrl: string | null;
   communityId: string;
   communitySlug: string;
   createdAt: string;
@@ -270,6 +272,7 @@ export type AuthorPostsQuery = {
       url: string | null;
       authorId: string;
       authorUsername: string;
+      authorAvatarUrl: string | null;
       communityId: string;
       communitySlug: string;
       createdAt: string;
@@ -322,6 +325,7 @@ export type DiscussionQuery = {
     url: string | null;
     authorId: string;
     authorUsername: string;
+    authorAvatarUrl: string | null;
     communityId: string;
     communitySlug: string;
     createdAt: string;
@@ -374,6 +378,7 @@ export type PublishPostMutation = {
     url: string | null;
     authorId: string;
     authorUsername: string;
+    authorAvatarUrl: string | null;
     communityId: string;
     communitySlug: string;
     createdAt: string;
@@ -418,6 +423,7 @@ export type EditPostMutation = {
     url: string | null;
     authorId: string;
     authorUsername: string;
+    authorAvatarUrl: string | null;
     communityId: string;
     communitySlug: string;
     createdAt: string;
@@ -441,6 +447,7 @@ export type RemovePostMutation = {
     url: string | null;
     authorId: string;
     authorUsername: string;
+    authorAvatarUrl: string | null;
     communityId: string;
     communitySlug: string;
     createdAt: string;
@@ -644,6 +651,7 @@ export const DiscussionPostFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorAvatarUrl' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
           { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
@@ -1406,6 +1414,10 @@ export const BrowseFeedDocument = {
                       },
                       {
                         kind: 'Field',
+                        name: { kind: 'Name', value: 'authorAvatarUrl' },
+                      },
+                      {
+                        kind: 'Field',
                         name: { kind: 'Name', value: 'communityId' },
                       },
                       {
@@ -1552,6 +1564,7 @@ export const AuthorPostsDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorAvatarUrl' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
           { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
@@ -1753,6 +1766,7 @@ export const DiscussionDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorAvatarUrl' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
           { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
@@ -1973,6 +1987,7 @@ export const PublishPostDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorAvatarUrl' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
           { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
@@ -2134,6 +2149,7 @@ export const EditPostDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorAvatarUrl' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
           { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
@@ -2211,6 +2227,7 @@ export const RemovePostDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'authorUsername' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'authorAvatarUrl' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communityId' } },
           { kind: 'Field', name: { kind: 'Name', value: 'communitySlug' } },
           { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },

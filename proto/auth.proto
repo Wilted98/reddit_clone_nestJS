@@ -7,6 +7,21 @@ package auth;
 // GraphQL to each service's public edge.
 service AuthService {
   rpc Authenticate(AuthenticateRequest) returns (User);
+  rpc GetUserAvatars(GetUserAvatarsRequest) returns (GetUserAvatarsResponse);
+}
+
+// Public profile data only; bounded to 100 user IDs by the handler.
+message GetUserAvatarsRequest {
+  repeated string userIds = 1;
+}
+
+message UserAvatar {
+  string userId = 1;
+  string avatarUrl = 2;
+}
+
+message GetUserAvatarsResponse {
+  repeated UserAvatar avatars = 1;
 }
 
 message AuthenticateRequest {

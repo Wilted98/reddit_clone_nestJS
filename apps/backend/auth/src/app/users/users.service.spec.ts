@@ -31,6 +31,7 @@ describe('UsersService', () => {
       user: {
         create: jest.Mock;
         findUniqueOrThrow: jest.Mock;
+        findMany: jest.Mock;
         update: jest.Mock;
       };
     };
@@ -48,6 +49,7 @@ describe('UsersService', () => {
         user: {
           create: jest.fn(),
           findUniqueOrThrow: jest.fn(),
+          findMany: jest.fn(),
           update: jest.fn(),
         },
       },
@@ -191,6 +193,42 @@ describe('UsersService', () => {
       prisma.client.user.findUniqueOrThrow.mockRejectedValue(error);
       await expect(service.getPublicUser('vasi')).rejects.toBe(error);
     });
+  });
+
+  describe('getUserAvatars', () => {
+    it('deduplicates IDs and selects only public avatar data in one query', async () => {
+      const avatars = [
+        { id: '1', avatarUrl: 'https://example.com/avatar.png' },
+      ];
+      prisma.client.user.findMany.mockResolvedValue(avatars);
+      await expect(service.getUserAvatars(['1', '2', '1'])).resolves.toBe(
+        avatars,
+      );
+      expect(prisma.client.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['1', '2'] } },
+        select: { id: true, avatarUrl: true },
+      });
+      expect(prisma.client.user.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips empty lookups', async () => {
+      await expect(service.getUserAvatars([])).resolves.toEqual([]);
+      expect(prisma.client.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it.each(
+      [Array(101).fill('1'), [''], [' '], ['x'.repeat(129)]].map((ids) => [
+        ids,
+      ]),
+    )(
+      'rejects oversized or invalid batches %# before querying',
+      async (ids) => {
+        await expect(service.getUserAvatars(ids)).rejects.toThrow(
+          'Provide at most 100 valid user IDs.',
+        );
+        expect(prisma.client.user.findMany).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('getUser', () => {

@@ -25,6 +25,7 @@ const originalPost = {
   url: null,
   authorId: 'author',
   authorUsername: 'selene',
+  authorAvatarUrl: null,
   communityId: 'craft',
   communitySlug: 'craft',
   createdAt: '2026-10-05T10:00:00Z',

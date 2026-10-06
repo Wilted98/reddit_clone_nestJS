@@ -10,6 +10,20 @@ import { Observable } from 'rxjs';
 
 export const protobufPackage = 'auth';
 
+/** Public profile data only; bounded to 100 user IDs by the handler. */
+export interface GetUserAvatarsRequest {
+  userIds: string[];
+}
+
+export interface UserAvatar {
+  userId: string;
+  avatarUrl: string;
+}
+
+export interface GetUserAvatarsResponse {
+  avatars: UserAvatar[];
+}
+
 export interface AuthenticateRequest {
   token: string;
 }
@@ -31,6 +45,10 @@ export const AUTH_PACKAGE_NAME = 'auth';
 
 export interface AuthServiceClient {
   authenticate(request: AuthenticateRequest): Observable<User>;
+
+  getUserAvatars(
+    request: GetUserAvatarsRequest,
+  ): Observable<GetUserAvatarsResponse>;
 }
 
 /**
@@ -43,11 +61,18 @@ export interface AuthServiceController {
   authenticate(
     request: AuthenticateRequest,
   ): Promise<User> | Observable<User> | User;
+
+  getUserAvatars(
+    request: GetUserAvatarsRequest,
+  ):
+    | Promise<GetUserAvatarsResponse>
+    | Observable<GetUserAvatarsResponse>
+    | GetUserAvatarsResponse;
 }
 
 export function AuthServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ['authenticate'];
+    const grpcMethods: string[] = ['authenticate', 'getUserAvatars'];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(
         constructor.prototype,

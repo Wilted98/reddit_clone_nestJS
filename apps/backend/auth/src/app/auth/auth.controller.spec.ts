@@ -13,10 +13,10 @@ import { TokenPayload } from './token-payload.interface';
  */
 describe('AuthController', () => {
   let controller: AuthController;
-  let usersService: { getUser: jest.Mock };
+  let usersService: { getUser: jest.Mock; getUserAvatars: jest.Mock };
 
   beforeEach(async () => {
-    usersService = { getUser: jest.fn() };
+    usersService = { getUser: jest.fn(), getUserAvatars: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -24,6 +24,37 @@ describe('AuthController', () => {
     }).compile();
 
     controller = module.get(AuthController);
+  });
+
+  it('normalizes omitted empty repeated fields from protobuf', async () => {
+    usersService.getUserAvatars.mockResolvedValue([]);
+    await expect(
+      controller.getUserAvatars(
+        {} as Parameters<typeof controller.getUserAvatars>[0],
+      ),
+    ).resolves.toEqual({ avatars: [] });
+    expect(usersService.getUserAvatars).toHaveBeenCalledWith([]);
+  });
+
+  it('returns only IDs and avatar URLs from the batch endpoint', async () => {
+    usersService.getUserAvatars.mockResolvedValue([
+      {
+        id: 'one',
+        avatarUrl: 'https://example.com/avatar.png',
+        email: 'private@example.com',
+        password: 'secret',
+      },
+      { id: 'two', avatarUrl: null },
+    ]);
+    await expect(
+      controller.getUserAvatars({ userIds: ['one', 'two'] }),
+    ).resolves.toEqual({
+      avatars: [
+        { userId: 'one', avatarUrl: 'https://example.com/avatar.png' },
+        { userId: 'two', avatarUrl: '' },
+      ],
+    });
+    expect(usersService.getUserAvatars).toHaveBeenCalledWith(['one', 'two']);
   });
 
   it('looks the user up by the id already verified by JwtAuthGuard', async () => {

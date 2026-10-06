@@ -846,7 +846,7 @@ select:focus-visible {
   gap: 12px;
   margin-bottom: 17px;
 }
-.post-meta > span:not(.community-badge) {
+.post-meta > span:not(.profile-avatar) {
   display: grid;
   min-width: 0;
   gap: 3px;
@@ -1020,6 +1020,13 @@ select:focus-visible {
   width: 100%;
   height: 100%;
   font-size: 28px;
+}
+.post-meta > .profile-avatar {
+  width: 42px;
+  height: 42px;
+}
+.post-meta > .profile-avatar .community-badge {
+  font-size: 17px;
 }
 .header-avatar .profile-avatar {
   width: 40px;
