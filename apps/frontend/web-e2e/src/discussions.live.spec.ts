@@ -2,15 +2,17 @@ import { expect, test } from '@playwright/test';
 
 test('publishes, edits, votes and soft-deletes real content with the Nest cookie', async ({
   page,
+  browser,
 }) => {
+  test.setTimeout(60000);
   const suffix = Date.now().toString(36);
   const username = `talk_${suffix}`;
   const email = `${username}@example.com`;
   const slug = `talk_${suffix}`;
   await page.goto('/account');
   await page
-    .getByRole('navigation', { name: 'Account navigation' })
-    .getByRole('button', { name: 'Create account' })
+    .getByRole('main')
+    .getByRole('button', { name: 'Create account', exact: true })
     .click();
   await page.getByLabel('Username').fill(username);
   await page.getByLabel('Email', { exact: true }).fill(email);
@@ -37,6 +39,86 @@ test('publishes, edits, votes and soft-deletes real content with the Nest cookie
       exact: true,
     }),
   ).toBeVisible();
+  await page.goto('/communities/joined');
+  const ownedMembership = page
+    .locator('.membership-row')
+    .filter({ hasText: `r/${slug}` });
+  await expect(
+    ownedMembership.getByText('Owner', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    ownedMembership.getByRole('button', { name: /Leave/ }),
+  ).toHaveCount(0);
+
+  // An isolated second account exercises a real non-owner departure.
+  const memberContext = await browser.newContext();
+  try {
+    const memberUsername = `member_${suffix}`;
+    for (const [query, input] of [
+      [
+        'mutation($input: CreateUserInput!) { createUser(createUserInput: $input) { id } }',
+        {
+          username: memberUsername,
+          email: `${memberUsername}@example.com`,
+          password: 'Strong123!',
+        },
+      ],
+      [
+        'mutation($input: LoginInput!) { login(loginInput: $input) { id } }',
+        { email: `${memberUsername}@example.com`, password: 'Strong123!' },
+      ],
+    ]) {
+      const response = await memberContext.request.post(
+        'http://localhost:3000/graphql',
+        { data: { query, variables: { input } } },
+      );
+      expect((await response.json()).errors).toBeUndefined();
+    }
+    const membershipMutation =
+      'mutation($slug: String!) { joinCommunity(slug: $slug) { id memberCount } }';
+    const joinedResponse = await memberContext.request.post(
+      'http://localhost:3001/graphql',
+      { data: { query: membershipMutation, variables: { slug } } },
+    );
+    const joinedResult = await joinedResponse.json();
+    expect(joinedResult.errors).toBeUndefined();
+    expect(joinedResult.data.joinCommunity.memberCount).toBe(2);
+    const memberPage = await memberContext.newPage();
+    await memberPage.goto('http://localhost:4200/communities/joined');
+    await memberPage
+      .getByRole('button', { name: `Leave r/${slug}`, exact: true })
+      .click();
+    await memberPage
+      .getByRole('button', { name: 'Confirm leave community' })
+      .click();
+    await expect(
+      memberPage.getByRole('heading', { name: 'No joined communities' }),
+    ).toBeVisible();
+    await memberPage.reload();
+    await expect(
+      memberPage.getByRole('heading', { name: 'No joined communities' }),
+    ).toBeVisible();
+    const communityResponse = await page.request.post(
+      'http://localhost:3001/graphql',
+      {
+        data: {
+          query:
+            'query($slug: String!) { community(slug: $slug) { memberCount } }',
+          variables: { slug },
+        },
+      },
+    );
+    expect((await communityResponse.json()).data.community.memberCount).toBe(1);
+  } finally {
+    await memberContext.request.post('http://localhost:3001/graphql', {
+      data: {
+        query:
+          'mutation($slug: String!) { leaveCommunity(slug: $slug) { id } }',
+        variables: { slug },
+      },
+    });
+    await memberContext.close();
+  }
   let postId: string | undefined;
   let commentId: string | undefined;
   try {

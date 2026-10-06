@@ -4,6 +4,11 @@ The `web` Nx application lives in `apps/frontend/web`. It connects to the
 separate NestJS auth and social GraphQL APIs. Authentication uses the backend's
 httpOnly cookie; the frontend does not issue or persist access tokens.
 
+The shared sidebar retains a single account entry. On `/account`, login and
+registration modes switch through the action beneath the form; there is no
+duplicate account-mode navigation block in the sidebar. The account entry
+remains available on mobile, where the desktop topbar is hidden.
+
 Home (`/`), the community directory (`/communities`), and community feeds
 (`/r/[slug]`) are public browsing routes. Registration, login, and the private
 account view live at `/account`. See

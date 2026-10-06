@@ -66,7 +66,8 @@ or production-hardening task. The web app supports account sessions,
 [posting/discussions/voting](14-web-posts-discussions-and-voting.md),
 [public profiles/settings](15-web-profiles-and-settings.md),
 [author editing/deletion](16-web-content-editing-and-deletion.md),
-and [community creation](17-web-community-creation.md);
+[community creation](17-web-community-creation.md),
+and [membership management](18-web-community-memberships.md);
 see [the web technical reference](12-web-foundation.md).
 Keep the same one-or-two-feature workflow. [The frontend handoff](11-frontend-handoff.md)
 maps these screens to the current contracts and cookie/pagination rules.

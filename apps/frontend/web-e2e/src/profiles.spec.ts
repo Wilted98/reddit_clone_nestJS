@@ -503,6 +503,12 @@ test('validates settings, preserves a failed draft and saves only changed public
   await expect(
     form.getByRole('button', { name: 'Save changes' }),
   ).toBeDisabled();
+  const save = form.getByRole('button', { name: 'Save changes' });
+  await expect(save).toHaveAttribute('aria-busy', 'false');
+  expect(await save.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    'not-allowed',
+  );
+  await expect(save.locator('.spin')).toHaveCount(0);
   await form.getByLabel('Bio').fill('x'.repeat(301));
   await form.getByLabel('Avatar URL').fill('javascript:alert(1)');
   await form.getByRole('button', { name: 'Save changes' }).click();
@@ -513,11 +519,20 @@ test('validates settings, preserves a failed draft and saves only changed public
   await form.getByRole('button', { name: 'Save changes' }).click();
   await expect(form.getByRole('alert')).toBeVisible();
   await expect(form.getByLabel('Bio')).toHaveValue('A new public bio.');
+  await expect(save).toHaveAttribute('aria-busy', 'false');
+  expect(await save.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    'pointer',
+  );
   await form.getByRole('button', { name: 'Save changes' }).click();
   await expect(form).toContainText('Profile saved.');
   await expect(
     form.getByRole('button', { name: 'Save changes' }),
   ).toBeDisabled();
+  await expect(save).toHaveAttribute('aria-busy', 'false');
+  expect(await save.evaluate((node) => getComputedStyle(node).cursor)).toBe(
+    'not-allowed',
+  );
+  await expect(save.locator('.spin')).toHaveCount(0);
   expect(
     state.operations
       .filter((op) => op.operationName === 'SaveProfile')
@@ -597,6 +612,12 @@ test('serializes saving and rechecks an expired session instead of retrying a wr
   await form.getByLabel('Bio').fill('Pending bio.');
   await form.getByRole('button', { name: 'Save changes' }).click();
   await expect(form.getByRole('button', { name: 'Saving...' })).toBeDisabled();
+  const pendingSave = form.getByRole('button', { name: 'Saving...' });
+  await expect(pendingSave).toHaveAttribute('aria-busy', 'true');
+  expect(
+    await pendingSave.evaluate((node) => getComputedStyle(node).cursor),
+  ).toBe('wait');
+  await expect(pendingSave.locator('.spin')).toHaveCount(1);
   await expect(form.getByLabel('Bio')).toBeDisabled();
   await expect.poll(() => state.saveCalls).toBe(1);
   state.signedIn = false;

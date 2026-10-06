@@ -4,7 +4,9 @@ The core discussion APIs are implemented. The Next.js web app supports account
 sessions, public feed/community browsing, post composition, bounded discussions,
 and voting, public profiles/activity, and own bio/avatar settings. Content
 editing/deletion are implemented on discussions and own profile activity.
-Community creation is available from the directory. See
+Community creation is available from the directory, and
+[membership management](18-web-community-memberships.md) lists joined
+communities with confirmed departures. See
 [web foundation](12-web-foundation.md) for setup and
 [web social browsing](13-web-feeds-and-communities.md) for pagination and rendering,
 and [web discussions](14-web-posts-discussions-and-voting.md) for write workflows.
@@ -59,6 +61,9 @@ inputs and examples. `myCommunities` provides the authenticated user's joined
 community list for the sidebar. Arbitrary-community caller role context and
 community settings updates are still unavailable. Do not infer joined state
 from `memberCount` or recent visits; role-aware controls require that backend work.
+The joined-community view also uses `myCommunities` and its public `ownerId`
+to hide owner departures, with the backend enforcing the same restriction.
+This identifies ownership, not a non-owner's MEMBER/MODERATOR role.
 
 ## Pagination and edit state
 
@@ -114,6 +119,7 @@ may be HTTP 400 and have a different shape, so keep a generic fallback.
 5. Author-only post/comment editing and deletion on discussions and own profiles
    ([content controls](16-web-content-editing-and-deletion.md)).
 6. Authenticated community creation ([community creation](17-web-community-creation.md)).
+7. Joined-community directory and confirmed departures ([memberships](18-web-community-memberships.md)).
 
 Membership context + community settings are the next backend batch and can
 be built alongside the community UI. Moderation + bounded search follow when

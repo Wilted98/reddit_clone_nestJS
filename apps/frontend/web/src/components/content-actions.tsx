@@ -1,16 +1,9 @@
 'use client';
 
 import { useMutation } from '@apollo/client/react';
-import {
-  Ellipsis,
-  LoaderCircle,
-  Pencil,
-  RotateCcw,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Ellipsis, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import type { RefObject } from 'react';
 import {
   DiscussionCommentFragment,
   DiscussionPostFragment,
@@ -30,6 +23,7 @@ import {
   socialActionError,
 } from '../lib/errors';
 import { ContentEditForm } from './content-edit-form';
+import { ConfirmationDialog } from './confirmation-dialog';
 import { useSession } from './session-provider';
 
 type ContentActionsProps = EditableContent & {
@@ -132,86 +126,6 @@ function ContentOptions({
         </div>
       )}
     </div>
-  );
-}
-
-function DeleteContentDialog({
-  kind,
-  pending,
-  onConfirm,
-  onCancel,
-  trigger,
-  children,
-}: {
-  kind: 'post' | 'comment';
-  pending: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-  trigger: RefObject<HTMLButtonElement | null>;
-  children: ReactNode;
-}) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const id = useId();
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    const opener = trigger.current;
-    const overflow = document.body.style.overflow;
-    element.showModal();
-    document.body.style.overflow = 'hidden';
-    return () => {
-      element.close();
-      document.body.style.overflow = overflow;
-      opener?.focus();
-    };
-  }, [trigger]);
-  return (
-    <dialog
-      ref={dialog}
-      className="delete-confirmation"
-      aria-modal="true"
-      aria-labelledby={`${id}-title`}
-      aria-describedby={`${id}-description`}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onCancel();
-      }}
-    >
-      <h2 className="delete-confirmation-title" id={`${id}-title`}>
-        Delete {kind}?
-      </h2>
-      <p id={`${id}-description`}>
-        {kind === 'post'
-          ? 'The conversation will stay readable.'
-          : 'Replies will stay readable.'}{' '}
-        This cannot be undone.
-      </p>
-      {children}
-      <div className="content-action-buttons">
-        <button
-          type="button"
-          className="text-button"
-          disabled={pending}
-          onClick={onCancel}
-          autoFocus
-        >
-          <X size={17} /> Cancel
-        </button>
-        <button
-          type="button"
-          className="secondary-button danger-text"
-          disabled={pending}
-          onClick={onConfirm}
-        >
-          {pending ? (
-            <LoaderCircle size={17} className="spin" />
-          ) : (
-            <Trash2 size={17} />
-          )}
-          {pending ? 'Deleting...' : `Confirm delete ${kind}`}
-        </button>
-      </div>
-    </dialog>
   );
 }
 
@@ -334,15 +248,19 @@ function OwnContentActions(props: ContentActionsProps) {
         />
       )}
       {mode === 'delete' && (
-        <DeleteContentDialog
-          kind={props.kind}
+        <ConfirmationDialog
+          title={`Delete ${props.kind}?`}
+          description={`${props.kind === 'post' ? 'The conversation will stay readable.' : 'Replies will stay readable.'} This cannot be undone.`}
+          confirmLabel={`Confirm delete ${props.kind}`}
+          pendingLabel="Deleting..."
+          icon={<Trash2 size={17} />}
           pending={pending || session.loading}
           onCancel={cancel}
           onConfirm={() => void write()}
           trigger={trigger}
         >
           {error}
-        </DeleteContentDialog>
+        </ConfirmationDialog>
       )}
       {mode !== 'delete' && error}
     </div>

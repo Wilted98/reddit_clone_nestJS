@@ -48,6 +48,12 @@ logout. Guests never issue this private query. Successful composer joins
 refresh the active list. No popular-community data is used as a subscription
 fallback.
 
+The sidebar's Manage communities link and the directory's Your communities
+action open `/communities/joined`. This private view supports confirmed
+departures and owner protection; see [membership management](18-web-community-memberships.md).
+Successful departures refresh active sidebar subscription queries without
+removing recent browsing history.
+
 Run the app with `npx nx dev web` and open `http://localhost:4200`.
 The directory's Create community action opens `/communities/new`; see
 [community creation](17-web-community-creation.md) for its mutation and session rules.

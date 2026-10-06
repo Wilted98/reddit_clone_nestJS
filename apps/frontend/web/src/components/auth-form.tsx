@@ -41,6 +41,7 @@ function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
       className="primary-button auth-submit"
       type="submit"
       disabled={pending}
+      aria-busy={pending}
     >
       {pending ? (
         <LoaderCircle size={19} className="spin" />

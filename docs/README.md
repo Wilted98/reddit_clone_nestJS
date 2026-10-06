@@ -46,3 +46,7 @@ threads, mutation/session safety, and verification.
 [`17-web-community-creation.md`](17-web-community-creation.md) documents
 authenticated community creation, validation, owner membership, confirmed
 navigation, error/session handling, and verification.
+
+[`18-web-community-memberships.md`](18-web-community-memberships.md) documents
+the private joined-community directory, owner protection, confirmed departures,
+subscription refresh, pagination, mutation/session safety, and verification.

@@ -82,6 +82,14 @@ navigation/reload persistence, tab synchronization, and blocked storage.
 The live discussion smoke test creates its community through the web form.
 See [community verification](17-web-community-creation.md#configuration-and-verification).
 
+Membership-management specs cover owner/guest protection, confirmed responses,
+write locks, failed departures, session rechecks, and late-result isolation.
+Desktop/mobile browser tests verify cancellation/focus/layout, sidebar refresh,
+private query gating, deduplicated pages, stale departed rows, and explicit
+retry boundaries. The live discussion test checks an owner membership and a
+second account's real departure and member counter; both test accounts remain.
+See [membership verification](18-web-community-memberships.md#verification).
+
 ### Profile privacy and authentication rate limits
 
 - [`users.service.spec.ts`](../apps/backend/auth/src/app/users/users.service.spec.ts)

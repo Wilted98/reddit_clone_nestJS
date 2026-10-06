@@ -6,12 +6,10 @@ import {
   ArrowRight,
   CircleCheck,
   LoaderCircle,
-  LogIn,
   LogOut,
   MessagesSquare,
   RotateCcw,
   ShieldCheck,
-  UserPlus,
   Pencil,
   UserRound,
 } from 'lucide-react';
@@ -57,30 +55,6 @@ export function AccountScreen() {
         session.account ? 'Your account' : 'Good conversations start here.'
       }
       mainId="account"
-      accountNavigation={
-        !session.account && (
-          <nav className="account-mode-nav" aria-label="Account navigation">
-            <>
-              <button
-                className={`nav-item ${mode === 'login' ? 'selected' : ''}`}
-                aria-current={mode === 'login' ? 'page' : undefined}
-                onClick={() => setMode('login')}
-              >
-                <LogIn size={21} />
-                Sign in
-              </button>
-              <button
-                className={`nav-item ${mode === 'register' ? 'selected' : ''}`}
-                aria-current={mode === 'register' ? 'page' : undefined}
-                onClick={() => setMode('register')}
-              >
-                <UserPlus size={21} />
-                Create account
-              </button>
-            </>
-          </nav>
-        )
-      }
     >
       <main id="account" className="account-layout">
         <section className="account-content" aria-labelledby="account-heading">

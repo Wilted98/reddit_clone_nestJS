@@ -132,6 +132,9 @@ Author controls, confirmation, and mutation failure handling are documented in
 Authenticated community creation is available from the directory; see
 [web community creation](docs/17-web-community-creation.md).
 
+`/communities/joined` lists your memberships with owner protection and confirmed
+Leave actions; see [web memberships](docs/18-web-community-memberships.md).
+
 ## Verification
 
 Run commands from the repository root:
