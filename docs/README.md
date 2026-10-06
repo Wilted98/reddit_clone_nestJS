@@ -50,3 +50,7 @@ navigation, error/session handling, and verification.
 [`18-web-community-memberships.md`](18-web-community-memberships.md) documents
 the private joined-community directory, owner protection, confirmed departures,
 subscription refresh, pagination, mutation/session safety, and verification.
+
+[`19-local-development-and-demo-data.md`](19-local-development-and-demo-data.md)
+documents checkout-scoped shutdown, local database migration/reset/seeding,
+fictional demo accounts, repeat-run behavior, and session lifetime configuration.

@@ -144,14 +144,23 @@ merge the services' unrelated root types into one schema.
 
 ## Session and privacy behavior
 
+The shell stretches the main region to fill the viewport on short/empty pages,
+keeping its footer at the shell bottom without fixing it over long content.
+
 - All auth requests use `credentials: include` and `cache: no-store`. Auth
   queries/mutations use Apollo `no-cache`; email lives only in the private
   account view, never localStorage, a shared public profile cache, or initial
   server-rendered HTML. The httpOnly cookie remains owned by Nest.
 - On mount, `me` restores the session in the browser. Unauthorized responses
-  mean guest; a transport/server failure shows a retryable error instead of
-  silently pretending restoration succeeded. Request generations prevent
+  mean guest; a transport/server failure shows a retryable error and preserves
+  an already confirmed account instead of logging it out. On an initial restore
+  there is no persisted account snapshot to recover. Backend guards still
+  authorize every protected request. Request generations prevent
   an older restore response from overwriting a later login/logout.
+- Auth's environment template uses a seven-day absolute JWT/cookie lifetime,
+  with no refresh tokens or sliding expiration. Existing cookies keep their
+  original expiry; sign in again after changing configuration. A stable
+  `JWT_SECRET` is required across backend restarts. See [authentication](04-authentication.md).
 - Registration first calls `createUser`, then `login` because creation alone
   does not set a cookie. If login fails after account creation, retry only
   login; the form retains its draft and does not register the same account twice.

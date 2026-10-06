@@ -5,6 +5,13 @@
   "scripts": {
     "prepare": "husky",
     "start": "npm run dev",
+    "stop": "node scripts/stop.mjs",
+    "stop:all": "node scripts/stop.mjs --docker",
+    "db:migrate": "node scripts/database.mjs migrate",
+    "db:seed": "node scripts/seed.mjs",
+    "db:reset": "node scripts/database.mjs reset",
+    "db:setup": "npm run codegen:backend && npm run db:migrate && npm run db:seed",
+    "test:scripts": "node --test scripts/*.test.mjs",
     "dev": "npm run codegen && nx run-many -t serve,dev -p auth,social,web --parallel=3",
     "dev:backend": "npm run codegen:backend && nx run-many -t serve -p auth,social --parallel=2",
     "dev:auth": "npm run generate-ts-proto && nx run auth:generate-prisma --skip-nx-cache && nx serve auth",

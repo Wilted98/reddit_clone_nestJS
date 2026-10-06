@@ -158,8 +158,14 @@ remain retryable and do not expose internal server details.
 
 The public `Post` model supplies `communitySlug`; cards do not infer it from
 IDs or the popular directory. Private `myCommunities` supplies the sidebar
-subscription list, but arbitrary-community caller role context is still
-unavailable. No joined/leave state is inferred from counts or visit history.
+subscription list; its optional exact `slug` filter supplies per-community
+membership checks. Joined state is not inferred from counts or visit history.
+Community headers place Join/Leave next to the community identity. Guests are
+linked to sign in; owners see a disabled Owner control. Leave uses the existing
+confirmation dialog and retains posts/comments. Confirmed mutations update the
+header member count and refresh active subscription/directory queries. Success
+messages clear after 3.5 seconds. The composer displays a disabled Joined state.
+See [membership controls](18-web-community-memberships.md).
 Feed cards open [discussions](14-web-posts-discussions-and-voting.md), where
 comment/reply composition and authenticated voting are available. Community headers open
 the post composer with the community preselected.

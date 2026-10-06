@@ -8,6 +8,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
+import { sessionLifetimeMs } from './session-lifetime';
 
 @Module({
   imports: [
@@ -18,7 +19,9 @@ import { RateLimitModule } from '../rate-limit/rate-limit.module';
       useFactory: (configService: ConfigService) => ({
         secret: configService.getOrThrow('JWT_SECRET'),
         signOptions: {
-          expiresIn: `${configService.getOrThrow('JWT_EXPIRATION_MS')}ms`,
+          expiresIn:
+            sessionLifetimeMs(configService.getOrThrow('JWT_EXPIRATION_MS')) /
+            1000,
         },
       }),
       inject: [ConfigService],

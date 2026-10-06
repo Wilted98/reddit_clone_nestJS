@@ -8,6 +8,7 @@ const community = {
   description: 'Small projects, big ideas.',
   memberCount: 42,
   createdAt: '2026-01-01T00:00:00Z',
+  ownerId: 'owner',
 };
 const account = {
   __typename: 'Account',
@@ -134,6 +135,7 @@ async function mockDiscussion(
       const input = op.variables.input as Record<string, unknown>;
       switch (op.operationName) {
         case 'SubscribedCommunities':
+        case 'CommunityMembership':
           result = {
             data: {
               myCommunities: {
@@ -238,7 +240,9 @@ async function mockDiscussion(
           };
           break;
         case 'JoinForPosting':
-          result = { data: { joinCommunity: community } };
+          result = {
+            data: { joinCommunity: { ...community, ownerId: 'owner' } },
+          };
           break;
         case 'PublishPost':
           post = {
@@ -314,6 +318,158 @@ test('votes directly from Home and opens the whole card without hijacking its co
   await page.goto('/');
   await card.getByRole('link', { name: 'r/craft', exact: true }).click();
   await expect(page).toHaveURL('/r/craft');
+});
+
+test('joins and leaves from the community header, restores composer state, and expires notices', async ({
+  page,
+}, testInfo) => {
+  let joined = false;
+  const operations = await mockDiscussion(
+    page,
+    ({ operationName, variables }) => {
+      const current = { ...community, memberCount: joined ? 43 : 42 };
+      if (operationName === 'CommunityMembership')
+        return {
+          data: {
+            myCommunities: {
+              items: joined && variables.slug === 'craft' ? [current] : [],
+            },
+          },
+        };
+      if (operationName === 'SubscribedCommunities')
+        return {
+          data: {
+            myCommunities: {
+              items: joined ? [current] : [],
+              hasMore: false,
+              nextCursor: null,
+            },
+          },
+        };
+      if (operationName === 'JoinForPosting') {
+        joined = true;
+        return { data: { joinCommunity: { ...community, memberCount: 43 } } };
+      }
+      if (operationName === 'LeaveCommunity') {
+        joined = false;
+        return { data: { leaveCommunity: { ...community, memberCount: 42 } } };
+      }
+      if (operationName === 'CommunityDetails')
+        return { data: { community: current } };
+      if (operationName === 'BrowseCommunities')
+        return {
+          data: {
+            communities: {
+              items: [
+                community,
+                { ...community, id: 'books', slug: 'books', name: 'Books' },
+              ],
+              nextCursor: null,
+              hasMore: false,
+            },
+          },
+        };
+      return {};
+    },
+  );
+  await page.goto('/r/craft');
+  const header = page.locator('.community-heading');
+  await header
+    .getByRole('button', { name: 'Join community', exact: true })
+    .click();
+  await expect(
+    header.getByRole('button', { name: 'Leave community', exact: true }),
+  ).toBeEnabled();
+  await expect(header.getByText('43 members', { exact: true })).toBeVisible();
+  await expect(header.getByText('Community joined.')).toBeVisible();
+  await page.screenshot({
+    path: `test-results/community-membership-${testInfo.project.name}.png`,
+  });
+  await expect(header.getByText('Community joined.')).toHaveCount(0, {
+    timeout: 6000,
+  });
+  await expect(
+    header.getByRole('button', { name: 'Leave community', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page
+      .getByRole('region', {
+        name: 'Subscribed communities',
+        includeHidden: true,
+      })
+      .locator('a[href="/r/craft"]'),
+  ).toBeAttached();
+  await header.getByRole('link', { name: 'Create post', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Joined', exact: true }),
+  ).toBeDisabled();
+  await page.getByLabel('Community', { exact: true }).selectOption('books');
+  await expect(
+    page.getByRole('button', { name: 'Join community', exact: true }),
+  ).toBeEnabled();
+  await page.getByLabel('Community', { exact: true }).selectOption('craft');
+  await expect(
+    page.getByRole('button', { name: 'Joined', exact: true }),
+  ).toBeDisabled();
+  await page.goto('/r/craft');
+  await header
+    .getByRole('button', { name: 'Leave community', exact: true })
+    .click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Cancel', exact: true })
+    .click();
+  expect(
+    operations.filter((op) => op.operationName === 'LeaveCommunity'),
+  ).toHaveLength(0);
+  await header
+    .getByRole('button', { name: 'Leave community', exact: true })
+    .click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Confirm leave community', exact: true })
+    .click();
+  await expect(
+    header.getByRole('button', { name: 'Join community', exact: true }),
+  ).toBeEnabled();
+  await expect(header.getByText('42 members', { exact: true })).toBeVisible();
+  expect(
+    operations.filter((op) => op.operationName === 'JoinForPosting'),
+  ).toHaveLength(1);
+  expect(
+    operations.filter((op) => op.operationName === 'LeaveCommunity'),
+  ).toHaveLength(1);
+});
+
+test('protects the community owner and sends guests to sign in without private membership queries', async ({
+  page,
+}) => {
+  await mockDiscussion(page, ({ operationName }) =>
+    operationName === 'CommunityMembership'
+      ? {
+          data: {
+            myCommunities: { items: [{ ...community, ownerId: account.id }] },
+          },
+        }
+      : {},
+  );
+  await page.goto('/r/craft');
+  await expect(
+    page
+      .locator('.community-heading')
+      .getByRole('button', { name: 'Owner', exact: true }),
+  ).toBeDisabled();
+  await page.unrouteAll();
+  const operations = await mockDiscussion(page, undefined, false);
+  await page.reload();
+  await expect(
+    page
+      .locator('.community-heading')
+      .getByRole('link', { name: 'Join community', exact: true }),
+  ).toHaveAttribute('href', '/account');
+  expect(
+    operations.some((op) => op.operationName === 'CommunityMembership'),
+  ).toBe(false);
 });
 
 test('keeps the last three distinct community visits across reload and isolates them after logout', async ({
@@ -1404,6 +1560,15 @@ test('validates posting, joins explicitly after a membership error, preserves dr
   await expect(
     page.getByText('Community joined.', { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Joined', exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText('Community joined.', { exact: true }),
+  ).toHaveCount(0, { timeout: 6000 });
+  await expect(
+    page.getByRole('button', { name: 'Joined', exact: true }),
+  ).toBeDisabled();
   await page.getByRole('button', { name: 'Publish post' }).click();
   await expect(page).toHaveURL(/\/posts\/published$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(

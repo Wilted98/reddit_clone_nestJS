@@ -42,7 +42,7 @@ an ID tie-breaker. The moderator role is stored but has no moderation operations
 | `health`                                                  | Public                   | `"ok"`                                   |
 | `community(slug)`                                         | Public                   | One community, or a not-found error      |
 | `communities(cursor, limit)`                              | Public                   | `items`, `nextCursor`, `hasMore`         |
-| `myCommunities(cursor, limit)`                            | Authenticated            | Only the caller's joined communities     |
+| `myCommunities(cursor, limit, slug?)`                     | Authenticated            | Only the caller's joined communities     |
 | `createCommunity(createCommunityInput)`                   | Authenticated            | Community with an owner membership       |
 | `joinCommunity(slug)`                                     | Authenticated            | Community after joining                  |
 | `leaveCommunity(slug)`                                    | Authenticated, non-owner | Community after leaving                  |
@@ -77,8 +77,11 @@ user ID. It orders joined communities by ID ascending, overfetches one row,
 and uses an exclusive ID range cursor. Limits use the same 1-100 validation.
 Every page filters by the caller's membership; owners are included because
 creation creates their membership. Leaving removes a community from this
-list. A cursor still works after its membership is removed. This query does
-not expose the caller's role in arbitrary communities.
+list. A cursor still works after its membership is removed. The optional exact
+`slug` filter checks one community without scanning other subscriptions, while
+retaining the same caller scoping and pagination bounds. An empty filtered
+page means the caller has no membership there (or the community is absent).
+It does not expose MEMBER/MODERATOR roles; `ownerId` identifies ownership only.
 
 ## Posts and comments
 

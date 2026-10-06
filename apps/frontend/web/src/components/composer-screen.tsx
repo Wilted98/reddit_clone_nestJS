@@ -1,6 +1,6 @@
 'use client';
 
-import { useApolloClient, useMutation, useQuery } from '@apollo/client/react';
+import { useMutation, useQuery } from '@apollo/client/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowDown,
@@ -10,7 +10,6 @@ import {
   LoaderCircle,
   Plus,
   Send,
-  UsersRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -18,9 +17,7 @@ import { useId, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import {
   BrowseCommunitiesDocument,
-  JoinForPostingDocument,
   PublishPostDocument,
-  SubscribedCommunitiesDocument,
 } from '../graphql/generated/social';
 import { PostFields, postInput, postSchema } from '../lib/discussion';
 import {
@@ -33,6 +30,7 @@ import { AppShell } from './app-shell';
 import { QueryError, QueryLoading } from './query-feedback';
 import { useSession } from './session-provider';
 import { SocialRail } from './social-rail';
+import { CommunityMembershipControl } from './community-membership-control';
 
 export function ComposerScreen({ community }: { community: string }) {
   const session = useSession();
@@ -74,14 +72,12 @@ export function ComposerScreen({ community }: { community: string }) {
 }
 
 function PostComposer({ community }: { community: string }) {
-  const social = useApolloClient();
   const session = useSession();
   const router = useRouter();
   const fieldId = useId();
   const lock = useRef(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [joinPending, setJoinPending] = useState(false);
-  const [joined, setJoined] = useState<string | null>(null);
   const [published, setPublished] = useState<string | null>(null);
   const [pageError, setPageError] = useState<unknown>(null);
   const [pagePending, setPagePending] = useState(false);
@@ -96,9 +92,6 @@ function PostComposer({ community }: { community: string }) {
     },
   );
   const [publish] = useMutation(PublishPostDocument, {
-    fetchPolicy: 'no-cache',
-  });
-  const [join] = useMutation(JoinForPostingDocument, {
     fetchPolicy: 'no-cache',
   });
   const {
@@ -121,7 +114,7 @@ function PostComposer({ community }: { community: string }) {
   const disabled = isSubmitting || joinPending || !!published;
 
   async function submit(input: PostFields) {
-    if (lock.current || published) return;
+    if (lock.current || published || joinPending) return;
     lock.current = true;
     setFailure(null);
     try {
@@ -136,28 +129,6 @@ function PostComposer({ community }: { community: string }) {
         await session.refresh();
     } finally {
       lock.current = false;
-    }
-  }
-
-  async function joinSelected() {
-    if (!slug || lock.current) return;
-    lock.current = true;
-    setJoinPending(true);
-    setFailure(null);
-    try {
-      const { data } = await join({ variables: { slug } });
-      if (!data?.joinCommunity) throw new Error('Missing community response');
-      setJoined(slug);
-      void social
-        .refetchQueries({ include: [SubscribedCommunitiesDocument] })
-        .catch(() => undefined);
-    } catch (failure) {
-      setFailure(socialActionError(failure));
-      if (isForbidden(failure) || isUnauthenticated(failure))
-        await session.refresh();
-    } finally {
-      lock.current = false;
-      setJoinPending(false);
     }
   }
 
@@ -234,31 +205,17 @@ function PostComposer({ community }: { community: string }) {
               </option>
             ))}
           </select>
-          <button
-            className="text-button"
-            type="button"
-            disabled={disabled || !slug}
-            onClick={() => {
-              void joinSelected();
-            }}
-          >
-            {joinPending ? (
-              <LoaderCircle size={17} className="spin" />
-            ) : (
-              <UsersRound size={17} />
-            )}
-            Join community
-          </button>
+          <CommunityMembershipControl
+            slug={slug}
+            disabled={disabled}
+            onPendingChange={setJoinPending}
+            onChange={() => setFailure(null)}
+          />
         </div>
         {errors.communitySlug && (
           <span id={`${fieldId}-community-error`} className="field-error">
             {errors.communitySlug.message}
           </span>
-        )}
-        {joined === slug && (
-          <p className="form-notice" role="status">
-            Community joined.
-          </p>
         )}
         {loading && !data && <QueryLoading label="Loading communities..." />}
         {error && !pageError && (

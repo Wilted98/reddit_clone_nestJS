@@ -54,8 +54,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         },
         (failure) => {
           if (current === revision.current) {
-            setAccount(null);
-            if (!isUnauthenticated(failure)) setError(errorMessage(failure));
+            if (isUnauthenticated(failure)) setAccount(null);
+            else setError(errorMessage(failure));
           }
         },
       )

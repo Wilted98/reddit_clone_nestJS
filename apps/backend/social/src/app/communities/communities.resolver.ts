@@ -35,8 +35,9 @@ export class CommunitiesResolver {
   async myCommunities(
     @Args() { cursor, limit }: PaginationArgs,
     @CurrentUser() user: User,
+    @Args('slug', { type: () => String, nullable: true }) slug?: string,
   ) {
-    return this.communitiesService.listMine(user.id, cursor, limit);
+    return this.communitiesService.listMine(user.id, cursor, limit, slug);
   }
 
   @UseGuards(GqlAuthGuard)

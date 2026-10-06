@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { compare } from 'bcryptjs';
 import { TokenPayload } from './token-payload.interface';
+import { sessionLifetimeMs } from './session-lifetime';
 
 @Injectable()
 export class AuthService {
@@ -24,7 +25,9 @@ export class AuthService {
       httpOnly: true,
       sameSite: 'lax',
       secure: this.configService.get('NODE_ENV') === 'production',
-      maxAge: Number(this.configService.getOrThrow('JWT_EXPIRATION_MS')),
+      maxAge: sessionLifetimeMs(
+        this.configService.getOrThrow('JWT_EXPIRATION_MS'),
+      ),
     });
 
     return user;

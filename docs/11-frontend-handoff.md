@@ -58,9 +58,10 @@ Use public `User` fields for profile routes, never cached private `Account`
 objects containing email. See [the auth API reference](07-graphql-api-reference.md)
 and [social operations](09-social-service.md#graphql-operations) for exact
 inputs and examples. `myCommunities` provides the authenticated user's joined
-community list for the sidebar. Arbitrary-community caller role context and
-community settings updates are still unavailable. Do not infer joined state
-from `memberCount` or recent visits; role-aware controls require that backend work.
+community list for the sidebar. Its optional exact `slug` filter checks one
+community's membership independently of subscription pagination. Non-owner role
+context and community settings updates are still unavailable. Do not infer
+joined state from `memberCount` or recent visits.
 The joined-community view also uses `myCommunities` and its public `ownerId`
 to hide owner departures, with the backend enforcing the same restriction.
 This identifies ownership, not a non-owner's MEMBER/MODERATOR role.

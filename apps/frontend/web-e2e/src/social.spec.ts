@@ -167,7 +167,11 @@ async function mockAPIs(
         result = { data: { feed: feedPage() } };
       if (operation.operationName === 'OwnPostVotes')
         result = { data: { myPostVotes: [] } };
-      if (operation.operationName === 'SubscribedCommunities')
+      if (
+        ['SubscribedCommunities', 'CommunityMembership'].includes(
+          operation.operationName,
+        )
+      )
         result = { data: { myCommunities: communityPage([]) } };
       if (operation.operationName === 'BrowseCommunities')
         result = { data: { communities: communityPage() } };

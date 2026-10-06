@@ -55,11 +55,17 @@ export class CommunitiesService {
     return toPage(rows, limit);
   }
 
-  async listMine(userId: string, cursor: string | undefined, limit: number) {
+  async listMine(
+    userId: string,
+    cursor: string | undefined,
+    limit: number,
+    slug?: string,
+  ) {
     const rows = await this.prismaService.client.community.findMany({
       take: limit + 1,
       where: {
         memberships: { some: { userId } },
+        ...(slug !== undefined && slug !== null && { slug }),
         ...(cursor && { id: { gt: cursor } }),
       },
       orderBy: { id: 'asc' },

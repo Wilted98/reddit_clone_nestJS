@@ -45,6 +45,7 @@ import { SocialRail } from './social-rail';
 import { VoteGroup } from './voting';
 import { useSession } from './session-provider';
 import { recentKey, visitCommunity } from '../lib/recent-communities';
+import { CommunityMembershipControl } from './community-membership-control';
 
 export function FeedScreen({
   filters,
@@ -122,7 +123,7 @@ function CommunityFeed({
   if (!data) return null;
   return (
     <>
-      <CommunityHeader community={data.community} />
+      <CommunityHeader key={data.community.id} community={data.community} />
       <FeedList
         key={`${slug}:${filters.sort}:${filters.range}`}
         slug={slug}
@@ -137,14 +138,23 @@ function CommunityHeader({
 }: {
   community: CommunitySummaryFragment;
 }) {
+  const [changed, setChanged] = useState<CommunitySummaryFragment | null>(null);
+  const current = changed ?? community;
   return (
     <header className="community-heading">
-      <div className="community-identity">
-        <CommunityBadge value={community.slug} />
-        <div>
-          <span className="section-label">r/{community.slug}</span>
-          <h1>{community.name}</h1>
+      <div className="community-heading-top">
+        <div className="community-identity">
+          <CommunityBadge value={community.slug} />
+          <div>
+            <span className="section-label">r/{community.slug}</span>
+            <h1>{community.name}</h1>
+          </div>
         </div>
+        <CommunityMembershipControl
+          slug={community.slug}
+          allowLeave
+          onChange={setChanged}
+        />
       </div>
       {community.description && (
         <p className="community-description">{community.description}</p>
@@ -152,8 +162,8 @@ function CommunityHeader({
       <div className="community-facts">
         <span>
           <UsersRound size={17} />
-          {formatCount(community.memberCount)}{' '}
-          {community.memberCount === 1 ? 'member' : 'members'}
+          {formatCount(current.memberCount)}{' '}
+          {current.memberCount === 1 ? 'member' : 'members'}
         </span>
         <span>Created {formatDate(community.createdAt)}</span>
         <Link
