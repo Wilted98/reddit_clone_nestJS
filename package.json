@@ -41,6 +41,16 @@
   "engines": {
     "node": "^22.15.0 || ^24.0.0"
   },
+  "overrides": {
+    "@nestjs/graphql": {
+      "@graphql-tools/utils": "^12.0.3"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "^8.0.2"
+    },
+    "mysql2": "^3.24.5",
+    "qs": "^6.16.0"
+  },
   "dependencies": {
     "@apollo/client": "^4.3.1",
     "@apollo/client-integration-nextjs": "^0.14.5",
@@ -62,7 +72,7 @@
     "@nestjs/throttler": "^6.7.1",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
-    "axios": "^1.6.0",
+    "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",

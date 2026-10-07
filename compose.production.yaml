@@ -1,0 +1,166 @@
+name: roorin-production
+
+x-backend: &backend
+  image: roorin-backend:${IMAGE_TAG:-local}
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile
+    target: backend
+    args:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in deploy/.env.production}
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  networks: [edge, database]
+  logging: &logging
+    driver: json-file
+    options: { max-size: '10m', max-file: '3' }
+  healthcheck: &api-health
+    test:
+      - CMD
+      - node
+      - -e
+      - "fetch('http://127.0.0.1:'+process.env.PORT+'/graphql',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query:'{ __typename }'})}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.data?.__typename==='Query'?0:1)}).catch(()=>process.exit(1))"
+    interval: 30s
+    timeout: 10s
+    start_period: 60s
+    retries: 3
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    shm_size: 64mb
+    mem_limit: 192m
+    environment:
+      POSTGRES_USER: roorin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Generate production secrets first}
+      AUTH_DATABASE_PASSWORD: ${AUTH_DATABASE_PASSWORD:?Generate production secrets first}
+      SOCIAL_DATABASE_PASSWORD: ${SOCIAL_DATABASE_PASSWORD:?Generate production secrets first}
+      POSTGRES_DB: roorin_auth
+    command: [postgres, -c, shared_buffers=32MB, -c, max_connections=40]
+    volumes:
+      - production-pgdata:/var/lib/postgresql/data
+      - ./deploy/init-databases.sh:/docker-entrypoint-initdb.d/10-databases.sh:ro
+    networks: [database]
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -U roorin -d roorin_auth &&
+          psql -U roorin -d roorin_auth -Atc
+          "SELECT count(*) FROM pg_database WHERE datname IN ('roorin_auth', 'roorin_social') AND pg_get_userbyid(datdba) = datname"
+          | grep -qx 2
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  auth:
+    <<: *backend
+    mem_limit: 256m
+    command: [node, dist/apps/backend/auth/main.js]
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=128
+      PORT: '3000'
+      GRPC_URL: 0.0.0.0:5050
+      DATABASE_URL: postgresql://roorin_auth:${AUTH_DATABASE_PASSWORD}@postgres:5432/roorin_auth
+      JWT_SECRET: ${JWT_SECRET:?Generate production secrets first}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-604800000}
+      CORS_ORIGINS: https://${DOMAIN}
+      TRUST_PROXY: 172.30.0.2
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  social:
+    <<: *backend
+    mem_limit: 288m
+    command: [node, dist/apps/backend/social/main.js]
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=160
+      PORT: '3001'
+      AUTH_GRPC_URL: auth:5050
+      DATABASE_URL: postgresql://roorin_social:${SOCIAL_DATABASE_PASSWORD}@postgres:5432/roorin_social
+      CORS_ORIGINS: https://${DOMAIN}
+      TRUST_PROXY: 172.30.0.2
+    depends_on:
+      auth: { condition: service_healthy }
+
+  web:
+    image: roorin-web:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      target: web
+      args: { DOMAIN: '${DOMAIN}' }
+    restart: unless-stopped
+    init: true
+    mem_limit: 224m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=128
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [edge]
+    logging: *logging
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:4200').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 96m
+    ports: ['80:80', '443:443']
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - production-caddy-data:/data
+      - production-caddy-config:/config
+    networks:
+      edge: { ipv4_address: 172.30.0.2 }
+    logging: *logging
+    depends_on:
+      auth: { condition: service_healthy }
+      social: { condition: service_healthy }
+      web: { condition: service_healthy }
+
+  migrate:
+    image: roorin-migrate:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      target: migrate
+      args: { DOMAIN: '${DOMAIN}' }
+    profiles: [tools]
+    mem_limit: 256m
+    environment:
+      AUTH_DATABASE_URL: postgresql://roorin_auth:${AUTH_DATABASE_PASSWORD}@postgres:5432/roorin_auth
+      SOCIAL_DATABASE_URL: postgresql://roorin_social:${SOCIAL_DATABASE_PASSWORD}@postgres:5432/roorin_social
+    networks: [database]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  production-pgdata:
+  production-caddy-data:
+  production-caddy-config:
+
+networks:
+  edge:
+    ipam:
+      config: [{ subnet: 172.30.0.0/24, ip_range: 172.30.0.128/25 }]
+  database:
+    internal: true

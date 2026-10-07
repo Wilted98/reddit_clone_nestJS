@@ -1,4 +1,4 @@
-# Roorin
+# Roorin - Reddit-inspired full-stack application built primarily to learn and explore NestJS
 
 Nx monorepo with two NestJS backends: `auth` owns users, JWT sessions, and
 internal gRPC authentication; `social` owns communities, memberships, posts,
@@ -159,6 +159,14 @@ Authenticated community creation is available from the directory; see
 
 `/communities/joined` lists your memberships with owner protection and confirmed
 Leave actions; see [web memberships](docs/18-web-community-memberships.md).
+
+## VPS deployment
+
+The production Docker stack runs the web app, both APIs, Postgres, and an HTTPS
+reverse proxy. It is separate from local Compose and never seeds or resets data.
+See [VPS deployment](docs/20-vps-deployment.md) for Oracle/Hostinger networking,
+private configuration, laptop-built images for small servers, startup, backups,
+and updates. `npm start` remains a development command.
 
 ## Verification
 
