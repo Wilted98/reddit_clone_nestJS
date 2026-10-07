@@ -128,6 +128,16 @@ test('signs in, restores on reload, and removes private account state on logout'
   await expect(
     page.getByRole('heading', { name: 'Welcome back.' }),
   ).toBeVisible();
+  const illustration = page.locator('.welcome-photo img');
+  await expect(illustration).toHaveAttribute('src', /community-plaza\.png/);
+  if (testInfo.project.name === 'desktop') {
+    await expect(illustration).toBeVisible();
+    await expect
+      .poll(() =>
+        illustration.evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBeGreaterThan(0);
+  }
   await signIn(page);
   await expect(
     page.getByRole('heading', { name: `Hey, ${account.username}!` }),
