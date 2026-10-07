@@ -12,16 +12,22 @@ import { GqlContext } from '@roorin/nestjs';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: 'apps/backend/auth/.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
     }),
     PrismaModule,
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
-      playground: {
-        settings: {
-          'request.credentials': 'include',
-        },
-      },
+      introspection: process.env.NODE_ENV !== 'production',
+      includeStacktraceInErrorResponses: process.env.NODE_ENV !== 'production',
+      playground:
+        process.env.NODE_ENV === 'production'
+          ? false
+          : {
+              settings: {
+                'request.credentials': 'include',
+              },
+            },
       context: ({ req, res }: GqlContext) => ({ req, res }),
     }),
     UsersModule,

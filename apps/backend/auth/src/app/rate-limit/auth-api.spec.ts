@@ -193,6 +193,27 @@ describe('Auth HTTP privacy and throttling (mocked database)', () => {
     expect(database.client.user.findUniqueOrThrow).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps login budgets separate behind an explicitly trusted proxy', async () => {
+    app.getHttpAdapter().getInstance().set('trust proxy', ['127.0.0.1', '::1']);
+    const input = { email: 'missing@roorin.test', password };
+    const first = { 'X-Forwarded-For': '192.0.2.10' };
+    await request(login, { input }, first);
+    await request(login, { input }, first);
+    const blocked = await request(login, { input }, first);
+    expect(blocked.data.errors?.[0].extensions?.originalError?.statusCode).toBe(
+      429,
+    );
+    const second = await request(
+      login,
+      { input },
+      { 'X-Forwarded-For': '192.0.2.11' },
+    );
+    expect(second.data.errors?.[0].extensions?.originalError?.statusCode).toBe(
+      401,
+    );
+    expect(database.client.user.findUniqueOrThrow).toHaveBeenCalledTimes(3);
+  });
+
   it('blocks registration before persistence without consuming the login budget', async () => {
     const input = {
       username: 'firstuser',

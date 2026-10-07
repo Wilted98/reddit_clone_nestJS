@@ -12,6 +12,7 @@ node_modules
 apps/backend/auth/.env
 apps/backend/social/.env
 .local-backups/
+deploy/.env.production
 
 # IDEs and editors
 /.idea

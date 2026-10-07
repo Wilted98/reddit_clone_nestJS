@@ -117,6 +117,10 @@ deliberate cookie/CORS/security configuration; local defaults are not a
 production configuration. See [authentication](04-authentication.md) and
 [frontend connection rules](11-frontend-handoff.md#local-connections).
 
+The production Docker image uses Next's monorepo-aware standalone output rather
+than the Nx start target. Its browser API URLs are set during image build.
+See [VPS deployment](20-vps-deployment.md) for the complete production stack.
+
 ## GraphQL contracts
 
 Auth/social remain separate schemas, clients, and caches. The frontend does
