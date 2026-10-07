@@ -9,7 +9,8 @@ COPY . .
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN npm run codegen:backend
 RUN npx nx run-many -t build -p auth,social --parallel=1
-ARG DOMAIN=roorin.com
+ARG DOMAIN
+RUN test -n "$DOMAIN" || { echo 'Set the DOMAIN build argument.' >&2; exit 1; }
 ENV NEXT_PUBLIC_AUTH_GRAPHQL_URL=https://${DOMAIN}/api/auth/graphql \
     NEXT_PUBLIC_SOCIAL_GRAPHQL_URL=https://${DOMAIN}/api/social/graphql
 RUN npm run build:web

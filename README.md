@@ -164,9 +164,12 @@ Leave actions; see [web memberships](docs/18-web-community-memberships.md).
 
 The production Docker stack runs the web app, both APIs, Postgres, and an HTTPS
 reverse proxy. It is separate from local Compose and never seeds or resets data.
-See [VPS deployment](docs/20-vps-deployment.md) for Oracle/Hostinger networking,
+See [VPS deployment](docs/20-vps-deployment.md) for DNS/firewall configuration,
 private configuration, laptop-built images for small servers, startup, backups,
-and updates. `npm start` remains a development command.
+and automatic `main` deployments using GitHub Actions. The workflow builds on
+GitHub and deploys over verified SSH after tests pass; see its
+[one-time setup](docs/20-vps-deployment.md#automatic-deployment-with-github-actions).
+`npm start` remains a development command.
 
 ## Verification
 
