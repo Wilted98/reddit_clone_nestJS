@@ -23,8 +23,8 @@ export function SocialRail() {
       <section className="rail-welcome">
         <div className="rail-photo">
           <Image
-            src="/community-street.jpg"
-            alt="A lively neighborhood street"
+            src="/community-plaza.png"
+            alt="People chatting in a colorful community plaza"
             fill
             sizes="300px"
             priority

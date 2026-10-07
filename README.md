@@ -1,4 +1,9 @@
-# Roorin - Reddit-inspired full-stack application built primarily to learn and explore NestJS
+# Roorin
+
+A Reddit-inspired community app built to explore NestJS, GraphQL, and gRPC,
+with a Next.js frontend.
+
+**Live app:** [roorin.com](https://roorin.com)
 
 Nx monorepo with two NestJS backends: `auth` owns users, JWT sessions, and
 internal gRPC authentication; `social` owns communities, memberships, posts,

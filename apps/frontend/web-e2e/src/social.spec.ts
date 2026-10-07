@@ -197,6 +197,33 @@ const joined = communities.slice(0, 2).map((item, index) => ({
   ownerId: index === 0 ? 'someone-else' : privateAccount.id,
 }));
 
+test('renders the community plaza illustration in the discovery sidebar', async ({
+  page,
+}, testInfo) => {
+  await mockAPIs(page);
+  await page.goto('/');
+  const illustration = page.locator('.rail-photo img');
+  await expect(illustration).toHaveAttribute('src', /community-plaza\.png/);
+  await expect(illustration).toHaveAttribute(
+    'alt',
+    'People chatting in a colorful community plaza',
+  );
+  if (testInfo.project.name === 'desktop') {
+    await expect(illustration).toBeVisible();
+    await expect
+      .poll(() =>
+        illustration.evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBeGreaterThan(0);
+  } else {
+    await expect(illustration).toBeHidden();
+  }
+  await page.screenshot({
+    path: testInfo.outputPath('community-plaza.png'),
+    fullPage: true,
+  });
+});
+
 test('renders author avatars at fixed size with safe fallbacks and no per-author profile queries', async ({
   page,
 }, testInfo) => {

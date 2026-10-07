@@ -165,8 +165,8 @@ export function AccountScreen() {
         <aside className="welcome-aside" aria-label="Welcome to Roorin">
           <div className="welcome-photo">
             <Image
-              src="/community-street.jpg"
-              alt="A lively neighborhood street, with buildings and people crossing"
+              src="/community-plaza.png"
+              alt="People chatting in a colorful community plaza"
               fill
               sizes="(max-width: 1000px) 400px, 35vw"
               priority
