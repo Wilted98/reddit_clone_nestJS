@@ -1,0 +1,151 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a deployment while it may be applying database migrations.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  DOMAIN: ${{ vars.PRODUCTION_DOMAIN }}
+  IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX }}
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NX_DAEMON: 'false'
+      NX_NO_CLOUD: 'true'
+      HUSKY: '0'
+      DATABASE_URL: postgresql://build:build@localhost:5432/build
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Validate deployment configuration
+        run: |
+          [[ "$DOMAIN" =~ ^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$ ]] || { echo 'Set the PRODUCTION_DOMAIN repository variable.' >&2; exit 1; }
+          [[ "$IMAGE_PREFIX" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]] || { echo 'Set a valid IMAGE_PREFIX repository variable.' >&2; exit 1; }
+      - name: Install dependencies and protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          npm ci --ignore-scripts
+      - name: Verify scripts and application tests
+        run: |
+          npm run test:scripts
+          npm test
+          npx nx run-many -t lint -p auth,social,web --parallel=2
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build backend image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          target: backend
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-backend:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          build-args: DOMAIN=${{ env.DOMAIN }}
+          cache-from: type=gha,scope=production-backend
+          cache-to: type=gha,scope=production-backend,mode=max
+      - name: Build web image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          target: web
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-web:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          build-args: DOMAIN=${{ env.DOMAIN }}
+          cache-from: type=gha,scope=production-web
+          cache-to: type=gha,scope=production-web,mode=max
+      - name: Build migration image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          target: migrate
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-migrate:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          build-args: DOMAIN=${{ env.DOMAIN }}
+          cache-from: type=gha,scope=production-migrate
+          cache-to: type=gha,scope=production-migrate,mode=max
+      - name: Package the matching release
+        run: bash scripts/package-release.sh "$GITHUB_SHA" "$DOMAIN" "$IMAGE_PREFIX"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-release
+          path: .local-backups/ci-release/*
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://${{ vars.PRODUCTION_DOMAIN }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: production-release
+          path: .local-backups/ci-release
+      - name: Skip a superseded main commit
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [[ "$latest" == "$GITHUB_SHA" ]]; then
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'deploy=false' >> "$GITHUB_OUTPUT"
+            echo 'Main advanced during this build; a newer workflow will deploy it.'
+          fi
+      - name: Transfer and deploy over verified SSH
+        if: steps.latest.outputs.deploy == 'true'
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          VPS_PORT: ${{ vars.VPS_PORT || '22' }}
+          VPS_DEPLOY_PATH: ${{ vars.VPS_DEPLOY_PATH }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+          RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash scripts/deploy-over-ssh.sh "$GITHUB_SHA" "$RELEASE_ID"
+      - name: Verify public HTTPS routes
+        if: steps.latest.outputs.deploy == 'true'
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --max-time 30 "https://$DOMAIN/" > /dev/null
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --max-time 30 "https://$DOMAIN/healthz" > /dev/null
+          for service in auth social; do
+            response="$(curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --max-time 30 \
+              "https://$DOMAIN/api/$service/graphql" -H 'content-type: application/json' \
+              --data '{"query":"{ __typename }"}')"
+            jq -e '.data.__typename == "Query" and (.errors == null)' <<< "$response" > /dev/null
+          done

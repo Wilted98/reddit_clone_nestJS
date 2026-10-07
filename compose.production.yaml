@@ -1,7 +1,7 @@
-name: roorin-production
+name: ${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME in deploy/.env.production}
 
 x-backend: &backend
-  image: roorin-backend:${IMAGE_TAG:-local}
+  image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX in deploy/.env.production}-backend:${IMAGE_TAG:-local}
   build:
     context: .
     dockerfile: deploy/Dockerfile
@@ -90,7 +90,7 @@ services:
       auth: { condition: service_healthy }
 
   web:
-    image: roorin-web:${IMAGE_TAG:-local}
+    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX in deploy/.env.production}-web:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: deploy/Dockerfile
@@ -138,7 +138,7 @@ services:
       web: { condition: service_healthy }
 
   migrate:
-    image: roorin-migrate:${IMAGE_TAG:-local}
+    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX in deploy/.env.production}-migrate:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: deploy/Dockerfile

@@ -57,4 +57,5 @@ fictional demo accounts, repeat-run behavior, and session lifetime configuration
 
 [`20-vps-deployment.md`](20-vps-deployment.md) documents the production Docker
 stack, HTTPS, Oracle/Hostinger networking, build-time public endpoints, private
-configuration, migrations, backups, and manual deployment updates.
+configuration, migrations, backups, manual updates, and GitHub Actions deployment
+with pinned SSH host keys and commit-specific releases.
