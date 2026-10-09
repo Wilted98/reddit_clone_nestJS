@@ -284,13 +284,49 @@ test('fits the viewport and never embeds private account data in initial HTML', 
   expect(await response.text()).not.toContain(account.email);
   if (testInfo.project.name === 'desktop') {
     const image = page.getByRole('img', {
-      name: 'A lively neighborhood street, with buildings and people crossing',
+      name: 'People chatting in a colorful community plaza',
     });
     await expect(image).toBeVisible();
     expect(
       await image.evaluate((node: HTMLImageElement) => node.naturalWidth),
     ).toBeGreaterThan(0);
   }
+});
+
+test('fills demo credentials only on request and signs in normally', async ({
+  page,
+}, testInfo) => {
+  const operations = await mockAuth(page);
+  await page.goto('/account');
+  const form = page.getByRole('form', { name: 'Sign in', exact: true });
+  await expect(
+    form.getByText('Shared account. Do not enter personal information.'),
+  ).toBeVisible();
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue('');
+  await form.getByRole('button', { name: 'Use demo account' }).click();
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue(
+    'test@test.com',
+  );
+  await expect(page.getByLabel('Password', { exact: true })).toHaveValue(
+    'RoorinDemo2026!',
+  );
+  expect(operations).not.toContain('SignIn');
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('demo-login.png'),
+    fullPage: true,
+  });
+  await form.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: `Hey, ${account.username}!` }),
+  ).toBeVisible();
+  expect(operations.filter((operation) => operation === 'SignIn')).toHaveLength(
+    1,
+  );
 });
 
 test('does not submit malformed registration input', async ({ page }) => {

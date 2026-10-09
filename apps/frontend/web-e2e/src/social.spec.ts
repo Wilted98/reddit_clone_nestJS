@@ -1944,7 +1944,7 @@ test('shows empty feeds and directories without demo posts or membership control
 
 test('renders safe links and plain user text with expandable long posts', async ({
   page,
-}) => {
+}, testInfo) => {
   const longBody = 'A thoughtful conversation. '.repeat(30);
   await mockAPIs(page, ({ operationName }) =>
     operationName === 'BrowseFeed'
@@ -1973,10 +1973,44 @@ test('renders safe links and plain user text with expandable long posts', async 
   await expect(
     page.getByTestId('post-unsafe').locator('a[href^="javascript:"]'),
   ).toHaveCount(0);
-  await page.getByText('Read full post', { exact: true }).click();
+  const card = page.getByTestId('post-long');
+  const body = card.locator('.post-body');
+  const before = await body.evaluate(
+    (node) => node.getBoundingClientRect().top + window.scrollY,
+  );
+  await expect(body).toHaveCount(1);
+  const toggle = card.getByRole('button', {
+    name: 'Read full post',
+    exact: true,
+  });
+  await toggle.focus();
+  await toggle.press('Enter');
+  await expect(card.getByRole('button', { name: 'Show less' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(body).toHaveCount(1);
+  await expect(body).toHaveText(longBody.trim());
+  expect(
+    await body.evaluate(
+      (node) => node.getBoundingClientRect().top + window.scrollY,
+    ),
+  ).toBe(before);
+  await expect(page).toHaveURL('/');
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('expanded-post.png'),
+    fullPage: true,
+  });
+  await card.getByRole('button', { name: 'Show less' }).click();
+  await expect(body).toHaveText(`${longBody.slice(0, 320)}...`);
   await expect(
-    page.getByTestId('post-long').locator('details'),
-  ).toHaveAttribute('open', '');
+    card.getByRole('button', { name: 'Read full post' }),
+  ).toHaveAttribute('aria-expanded', 'false');
   await expect(
     page
       .getByTestId('post-three')

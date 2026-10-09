@@ -85,7 +85,7 @@ GraphQL endpoints are `http://localhost:3000/graphql` (auth) and
 auth to run. Guarded social mutations and private vote queries require auth's gRPC endpoint and the
 `Authentication` cookie returned by login.
 
-Demo login: `alex@roorin.example` / `RoorinDemo2026!` (all 12 seeded accounts
+Demo login: `test@test.com` / `RoorinDemo2026!` (all 13 seeded accounts
 share this development-only password). `npm run db:seed` adds the demo dataset
 without duplicating its records. To replace **all local auth/social records**:
 
@@ -127,6 +127,9 @@ Auth's template sets a seven-day absolute JWT/cookie lifetime. Keep `JWT_SECRET`
 stable across restarts; changing it invalidates sessions. Temporary API failures
 preserve an already confirmed frontend account, but confirmed unauthorized
 responses clear it. No refresh tokens or sliding expiration are implemented.
+
+`DEMO_LOGIN_ENABLED=true` shows the seeded demo credentials and a login autofill
+button. It defaults to false and does not create an account or change authentication.
 
 For a production web build/start (with appropriately configured backend APIs):
 

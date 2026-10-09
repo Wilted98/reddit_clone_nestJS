@@ -49,6 +49,7 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_AUTH_GRAPHQL_URL: 'http://localhost:3000/graphql',
       NEXT_PUBLIC_SOCIAL_GRAPHQL_URL: 'http://localhost:3001/graphql',
+      DEMO_LOGIN_ENABLED: 'true',
     },
   },
 });

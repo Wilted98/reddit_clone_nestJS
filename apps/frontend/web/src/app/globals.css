@@ -442,6 +442,23 @@ input[readonly] {
   width: 100%;
   margin-top: 5px;
 }
+.demo-login {
+  display: grid;
+  gap: 8px;
+  padding: 16px 0;
+  margin-bottom: 24px;
+  border-block: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.demo-login strong {
+  color: var(--ink);
+}
+.demo-login .text-button {
+  justify-self: start;
+  margin-top: 4px;
+}
 .text-button {
   border: 0;
   padding: 0;
@@ -1150,14 +1167,14 @@ select:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.post-expanded summary {
+.post-expand-toggle {
   cursor: pointer;
   font-size: 13px;
   font-weight: 800;
   color: #147781;
   margin-bottom: 16px;
 }
-.post-expanded summary:focus-visible {
+.post-expand-toggle:focus-visible {
   outline: 3px solid var(--cyan);
   outline-offset: 3px;
 }

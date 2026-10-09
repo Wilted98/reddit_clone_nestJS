@@ -1,4 +1,6 @@
-export const demoPassword = 'RoorinDemo2026!';
+import demoAccount from '../apps/frontend/web/src/lib/demo-account.json' with { type: 'json' };
+
+export const demoPassword = demoAccount.password;
 
 const people = [
   ['alex', 'Building little web projects and asking too many questions.', true],
@@ -342,5 +344,14 @@ export function buildSeedData(now = new Date()) {
       });
     }
   }
+  // Append after generating discussions to keep existing fixture authors/votes stable.
+  users.push({
+    id: demoAccount.id,
+    username: demoAccount.username,
+    email: demoAccount.email,
+    bio: 'Shared demo account for trying the app. No personal information.',
+    avatarUrl: null,
+    createdAt: ago(24),
+  });
   return { users, communities, memberships, posts, comments, votes };
 }
