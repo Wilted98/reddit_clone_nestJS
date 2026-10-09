@@ -66,7 +66,7 @@ non-destructive unless you explicitly add volume removal flags.
 `scripts/seed.mjs` writes both databases through their generated Prisma clients.
 It loads:
 
-- 12 named users with bios and bcrypt-hashed passwords.
+- 13 named users with bios and bcrypt-hashed passwords.
 - Six communities: `romania`, `craft`, `webdev`, `books`, `cooking`, `outdoors`.
 - 36 memberships, including one owner for each community.
 - 24 text/link posts, 72 comments/replies, and 408 votes.
@@ -81,7 +81,7 @@ subject to third-party availability; failing images fall back in the web UI.
 All demo users have the password `RoorinDemo2026!`; for example:
 
 ```text
-alex@roorin.example
+test@test.com
 RoorinDemo2026!
 ```
 

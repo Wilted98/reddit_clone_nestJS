@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildSeedData } from './seed-data.mjs';
+import { buildSeedData, demoPassword } from './seed-data.mjs';
+import demoAccount from '../apps/frontend/web/src/lib/demo-account.json' with { type: 'json' };
 import { assertSeedIdentities, seedDatabases } from './seed.mjs';
 
 test('demo data is deterministic, bounded and internally consistent', () => {
   const now = new Date('2026-10-06T12:00:00Z');
   const data = buildSeedData(now);
   assert.deepEqual(data, buildSeedData(now));
-  assert.equal(data.users.length, 12);
+  assert.equal(data.users.length, 13);
+  const demo = data.users.find((user) => user.email === demoAccount.email);
+  assert.equal(demo.id, demoAccount.id);
+  assert(!data.communities.some((community) => community.ownerId === demo.id));
+  assert.equal(demoPassword, demoAccount.password);
   assert.equal(data.communities.length, 6);
   assert.equal(data.posts.length, 24);
   assert.equal(data.comments.length, 72);

@@ -22,7 +22,11 @@ import { ProfileSettingsForm } from './profile-settings-form';
 import { ProfileAvatar } from './profile-avatar';
 import { profileHref } from '../lib/profile';
 
-export function AccountScreen() {
+export function AccountScreen({
+  demoLoginEnabled = false,
+}: {
+  demoLoginEnabled?: boolean;
+}) {
   const session = useSession();
   const [mode, setMode] = useState<AuthMode>('login');
   const [signingOut, setSigningOut] = useState(false);
@@ -158,7 +162,12 @@ export function AccountScreen() {
                   </button>
                 </div>
               )}
-              <AuthForm key={mode} mode={mode} onModeChange={setMode} />
+              <AuthForm
+                key={mode}
+                mode={mode}
+                onModeChange={setMode}
+                demoLoginEnabled={demoLoginEnabled}
+              />
             </>
           )}
         </section>

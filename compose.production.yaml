@@ -101,6 +101,7 @@ services:
     mem_limit: 224m
     environment:
       NODE_OPTIONS: --max-old-space-size=128
+      DEMO_LOGIN_ENABLED: ${DEMO_LOGIN_ENABLED:-false}
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     networks: [edge]

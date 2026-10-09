@@ -12,6 +12,7 @@ import {
 } from '../lib/auth-validation';
 import { errorMessage } from '../lib/errors';
 import { useSession } from './session-provider';
+import demoAccount from '../lib/demo-account.json';
 
 export type AuthMode = 'login' | 'register';
 
@@ -56,13 +57,19 @@ function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
 export function AuthForm({
   mode,
   onModeChange,
+  demoLoginEnabled = false,
 }: {
   mode: AuthMode;
   onModeChange: (mode: AuthMode) => void;
+  demoLoginEnabled?: boolean;
 }) {
   return (
     <>
-      {mode === 'login' ? <LoginForm /> : <RegistrationForm />}
+      {mode === 'login' ? (
+        <LoginForm demoLoginEnabled={demoLoginEnabled} />
+      ) : (
+        <RegistrationForm />
+      )}
       <p className="auth-switch">
         {mode === 'register' ? 'Already a member?' : 'New to Roorin?'}{' '}
         <button
@@ -79,13 +86,14 @@ export function AuthForm({
   );
 }
 
-function LoginForm() {
+function LoginForm({ demoLoginEnabled }: { demoLoginEnabled: boolean }) {
   const session = useSession();
   const [failure, setFailure] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<SignInFields>({
     resolver: zodResolver(signInSchema),
@@ -101,6 +109,30 @@ function LoginForm() {
   }
   return (
     <form onSubmit={handleSubmit(submit)} noValidate aria-label="Sign in">
+      {demoLoginEnabled && (
+        <div className="demo-login">
+          <strong>Demo account</strong>
+          <span>{demoAccount.email}</span>
+          <span>
+            Password: <code>{demoAccount.password}</code>
+          </span>
+          <small>Shared account. Do not enter personal information.</small>
+          <button
+            type="button"
+            className="text-button"
+            disabled={isSubmitting}
+            onClick={() => {
+              setFailure(null);
+              reset({
+                email: demoAccount.email,
+                password: demoAccount.password,
+              });
+            }}
+          >
+            <ArrowRight size={17} /> Use demo account
+          </button>
+        </div>
+      )}
       <div className="form-field">
         <label htmlFor="email">Email</label>
         <input

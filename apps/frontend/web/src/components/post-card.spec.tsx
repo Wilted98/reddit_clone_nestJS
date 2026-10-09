@@ -95,9 +95,37 @@ describe('post cards', () => {
   it('keeps the full body available for long text posts', () => {
     const body = 'A long discussion. '.repeat(30);
     render(<PostCard post={{ ...post, body }} />);
+    const toggle = screen.getByRole('button', { name: 'Read full post' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText(`${body.slice(0, 320)}...`)).toBeInTheDocument();
+    expect(document.querySelectorAll('.post-body')).toHaveLength(1);
+    fireEvent.click(toggle);
+    expect(screen.getByText(body.trim())).toBeInTheDocument();
     expect(
-      screen.getByText('Read full post').closest('details'),
-    ).toHaveTextContent(body.trim());
+      screen.queryByText(`${body.slice(0, 320)}...`),
+    ).not.toBeInTheDocument();
+    expect(document.querySelectorAll('.post-body')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(toggle).toHaveAttribute('aria-controls', 'post-body-one');
+    fireEvent.click(toggle);
+    expect(screen.getByText(`${body.slice(0, 320)}...`)).toBeInTheDocument();
+  });
+  it('does not truncate a 320-character body and resets expansion when content changes', () => {
+    const { rerender } = render(
+      <PostCard post={{ ...post, body: 'a'.repeat(320) }} />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Read full post' }),
+    ).not.toBeInTheDocument();
+    rerender(<PostCard post={{ ...post, body: 'b'.repeat(321) }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Read full post' }));
+    rerender(<PostCard post={{ ...post, body: 'c'.repeat(321) }} />);
+    expect(
+      screen.getByRole('button', { name: 'Read full post' }),
+    ).toHaveAttribute('aria-expanded', 'false');
   });
   it('renders the full post with a page heading in a discussion', () => {
     const body = 'Full text. '.repeat(100);

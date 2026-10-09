@@ -130,7 +130,7 @@ if (
     clients = await databaseClients(config);
     const counts = await seedDatabases(clients);
     console.log('Demo seed ready:', counts);
-    console.log(`Local demo login: alex@roorin.example / ${demoPassword}`);
+    console.log(`Local demo login: test@test.com / ${demoPassword}`);
     console.log(
       'Fictional development accounts only. Do not expose demo data/passwords publicly.',
     );

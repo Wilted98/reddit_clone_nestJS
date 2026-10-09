@@ -6,6 +6,7 @@ import { formatCount, formatDate, safeExternalLink } from '../lib/content';
 import { ProfileAvatar } from './profile-avatar';
 import { VoteControls } from './voting';
 import { profileHref } from '../lib/profile';
+import { PostBody } from './post-body';
 
 export function PostCard({
   post,
@@ -68,18 +69,14 @@ export function PostCard({
           </Link>
         </h2>
       )}
-      {post.body &&
-        (!detail && post.body.length > 320 ? (
-          <>
-            <p className="post-body">{post.body.slice(0, 320)}...</p>
-            <details className="post-expanded">
-              <summary>Read full post</summary>
-              <p className="post-body">{post.body}</p>
-            </details>
-          </>
-        ) : (
-          <p className="post-body">{post.body}</p>
-        ))}
+      {post.body && (
+        <PostBody
+          key={post.body}
+          body={post.body}
+          id={`post-body-${post.id}`}
+          expandable={!detail}
+        />
+      )}
       {link && (
         <a
           className="post-link"
